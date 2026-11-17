@@ -1,0 +1,47 @@
+{
+  "billing": {
+    "tax_percent": 10,
+    "service_percent": 5,
+    "tax_on_service": false,
+    "takeaway_fee_idr": 5000,
+    "rounding_step_idr": 100,
+    "payment_methods": [
+      "cash",
+      "debit",
+      "mastercard",
+      "visa"
+    ]
+  },
+  "receipt": {
+    "header_lines": [
+      "DEMO RESTAURANT",
+      "123 Demo Street",
+      "City, 12345"
+    ],
+    "footer_note": "Thank you for dining with us!"
+  },
+  "printing": {
+    "paper_width_mm": 80,
+    "cups_media": "Custom.80x5000mm",
+    "cups_qr_media": "Custom.80x80mm",
+    "lp_options": {
+      "media": "Custom.80x5000mm",
+      "fit-to-page": "true",
+      "page-left": "0",
+      "page-right": "0",
+      "page-top": "0",
+      "page-bottom": "0"
+    }
+  },
+  "escpos": {
+    "receipt_cols": 48,
+    "checker_cols": 48,
+    "feed_lines": 6,
+    "right_guard": 0
+  },
+  "ui": {
+    "click_debounce_ms": 40,
+    "instant_table_open": false,
+    "route_prefetch": true
+  }
+}

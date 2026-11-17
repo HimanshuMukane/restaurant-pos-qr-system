@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>Meja Dikunci</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; background: #e5e7eb; }
+    .card { max-width: 520px; margin: 10vh auto; padding: 24px; border: 1px solid #ddd; border-radius: 10px; }
+    .title { font-size: 20px; margin-bottom: 8px; }
+    .msg { font-size: 16px; color: #444; margin-bottom: 18px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .btn { background:#444; color:#fff; padding:10px 16px; border-radius:8px; text-decoration:none; }
+    .btn.alt { background:#eee; color:#222; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title">Meja {{ table_number }} terkunci</div>
+    <div class="msg"><strong>{{ owner_username }}</strong> sedang mengakses meja ini.</div>
+    <div class="row">
+      <a class="btn" href="{{ url_for('dashboard.dashboard') }}">Kembali ke Dashboard</a>
+      <a class="btn alt" href="{{ url_for('sessions.view_table', table_number=table_number) }}">Coba lagi</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{ (header.title or header.station or ('Kitchen – ' ~ header.table_number)) }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    @page { size: 80mm auto; margin: 4mm 3mm; }
+    body  { margin:0; font-family: system-ui, Arial, sans-serif; }
+    .paper { width:72mm; margin:0 auto; font-size:20px; }
+
+    /* Header */
+    .h   { text-align:center; margin:6px 0 6px; }
+    .h .station {
+      font-weight:900; letter-spacing:.04em;
+      font-size:22px; line-height:1.1;
+    }
+    .subhead { margin-top:6px; font-size:18px; line-height:1.2; }
+    .subhead div { margin:2px 0; }
+    .split-tag { font-weight:900; font-size:18px; letter-spacing:.03em; }
+    .res-tag { font-weight:900; font-size:22px; letter-spacing:.04em; }
+
+    .line{ border-top:1px dashed #000; margin:6px 0; }
+
+    /* Rows */
+    .row { display:flex; justify-content:space-between; align-items:flex-start; margin:4px 0; }
+    .qty { width:22mm; text-align:left; white-space:nowrap; }
+    .qty .unit { margin-left:1mm; font-weight:700; font-size:.85em; }
+    .name{ flex:1; padding:0 4mm; word-break:break-word; }
+
+    /* Notes (sauce + note) — no left border now */
+    .meta { font-size:16px; line-height:1.35; margin:2px 0 6px 22mm; }
+    .lbl  { font-weight:800; margin-right:2mm; }
+
+    /* Big VOID label above a negative row */
+    .void-tag {
+      font-weight:900; font-size:18px; letter-spacing:.02em;
+      margin:4px 0 0 0; text-align:left; margin-left:22mm; /* align with names */
+    }
+
+    /* Footer tail feed to ensure full cut */
+    .tail{ height:14mm; }
+
+    @media print {
+      .paper::after{ content:""; display:block; height:20mm; }
+    }
+    @media screen {
+      body   { background:#f6f7f9; }
+      .paper { background:#fff; margin:12px auto; padding:8px;
+               box-shadow:0 0 0 1px rgba(0,0,0,.06), 0 10px 30px rgba(0,0,0,.15); }
+    }
+  </style>
+</head>
+<body>
+  <div class="paper">
+    <div class="h">
+      <div class="station">
+        {% if header.station %}
+          {{ header.station|upper }} TICKET
+        {% elif header.title %}
+          {{ header.title }}
+        {% else %}
+          KITCHEN TICKET
+        {% endif %}
+      </div>
+
+      <div class="subhead">
+        {% if header.is_takeaway %}
+          <div style="font-weight:900; letter-spacing:.03em;">TAKE AWAY</div>
+        {% endif %}
+        {% if header.is_reservation %}
+          <div class="res-tag">
+            RESERVASI{% if header.reservation_time %} ({{ header.reservation_time }}){% endif %}
+          </div>
+        {% endif %}
+        <div>Meja: <strong>{{ header.table_label or header.table_number }}</strong></div>
+
+        {% if header.split_label %}
+          <div class="split-tag">SPLIT: <strong>{{ header.split_label }}</strong></div>
+        {% endif %}
+
+        {% if header.bill_label and header.bill_label != 'ALL' %}
+          <div>Bill: <strong>{{ header.bill_label }}</strong></div>
+        {% endif %}
+
+        {% if header.guest_name or header.pax or header.dp_total_fmt %}
+          <div>Tamu: <strong>{{ header.guest_name or '-' }}</strong></div>
+          <div>Pax: <strong>{{ header.pax or 1 }}</strong></div>
+          {% if header.table_note_lines and header.table_note_lines|length %}
+            <div>Catatan Meja:
+              <div>
+                {% for l in header.table_note_lines %}
+                  <div>- {{ l }}</div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        
+        {% endif %}
+
+        {% if header.prepared_by %}
+          <div style="font-size:16px;">Dikirim oleh: {{ header.prepared_by }}</div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <div class="line"></div>
+
+    {% if not items or items|length == 0 %}
+      <div>Tidak ada item baru.</div>
+    {% else %}
+      {% for it in items %}
+        {% set q = it.qty %}
+        {% set is_void_row = (q is number and q < 0) %}
+        {% set q_abs = (q|float)|abs %}
+
+        {% if is_void_row %}
+          <div class="void-tag">VOID</div>
+        {% endif %}
+
+        <div class="row">
+          <div class="qty">
+            {{ "-" if is_void_row else "" }}
+            {{ (q_abs)|qtyfmt }}
+            {% if it.unit %}<span class="unit">{{ it.unit }}</span>{% endif %}
+          </div>
+          <div class="name">{{ it.name }}</div>
+        </div>
+
+        {% if it.sauce %}
+          <div class="meta"><span class="lbl">SAUS:</span>{{ it.sauce }}</div>
+        {% endif %}
+
+        {% if it.note_lines %}
+          <div class="meta">
+            <span class="lbl">CATATAN:</span>
+            <div>{% for p in it.note_lines %}<div>- {{ p }}</div>{% endfor %}</div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    <div class="line"></div>
+    <div style="font-size:16px;">Dicetak: {{ header.printed_at }}</div>
+
+    <div class="tail"></div>
+  </div>
+
+  <script>
+    (function(){
+      function hasParam(key) {
+        try {
+          const qs = window.location.search || "";
+          const re = new RegExp('(?:\\?|&)' + key + '=([^&]*)', 'i');
+          return re.test(qs);
+        } catch (_) {
+          return false;
+        }
+      }
+      if (hasParam("client_print")) {
+        window.__POS_AUTOPRINT__ = false;
+        return;
+      }
+      window.__POS_AUTOPRINT__ = (window.top === window);
+      if (!window.__POS_AUTOPRINT__) return;
+      function tryClose(){ try { window.close(); } catch(_){} }
+      window.addEventListener('afterprint', tryClose);
+      window.print();
+      setTimeout(tryClose, 2000);
+    })();
+  </script>
+</body>
+</html>

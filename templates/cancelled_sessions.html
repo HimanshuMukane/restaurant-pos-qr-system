@@ -1,0 +1,64 @@
+{% extends "admin_base.html" %}
+{% set active_tab = 'admin' %}
+{% block title %}Cancelled Tables{% endblock %}
+{% block heading %}Cancelled Tables{% endblock %}
+
+{% block head_extra %}
+<style>
+  .wrap { max-width: 1200px; margin: 18px auto; padding: 0 12px; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom: 12px; }
+  .card { border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#fff; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { border-bottom:1px solid #eef2f7; padding:8px 10px; text-align:left; }
+  th { background:#f8fafc; position:sticky; top:0; z-index:1; }
+  .muted { color:#667085; font-size:12px; }
+  .btn { padding:6px 10px; border:1px solid #d1d5db; background:#fff; border-radius:6px; cursor:pointer; }
+  .btn.primary { background:#2563eb; color:#fff; border-color:#2563eb; }
+  .row-details { background:#fafafa; }
+  .details-wrap { padding:8px 10px; }
+  .chip { border:1px solid #e5e7eb; background:#f8fafc; padding:6px 10px; border-radius:999px; cursor:pointer; }
+  .chip.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="toolbar">
+    <label>Dari</label><input type="date" id="cx_from">
+    <label>Sampai</label><input type="date" id="cx_to">
+    <div class="chips" id="cx_ranges">
+      <button class="chip" data-range="today">Hari ini</button>
+      <button class="chip" data-range="yesterday">Kemarin</button>
+      <button class="chip" data-range="7d">7 hari</button>
+      <button class="chip" data-range="mtd">Bulan ini</button>
+      <button class="chip" data-range="30d">30 hari</button>
+    </div>
+    <button class="btn primary" id="cx_apply" type="button">Terapkan</button>
+    <span class="muted" id="cx_count">-</span>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Meja</th>
+          <th>Session ID</th>
+          <th>Dibuka</th>
+          <th>Ditutup</th>
+          <th>Dibuka oleh</th>
+          <th>Dibatalkan oleh</th>
+          <th>Estimasi (Rp)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="cx_body">
+        <tr><td colspan="8" class="muted">Belum ada data.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cancelled_sessions.js') }}"></script>
+{% endblock %}

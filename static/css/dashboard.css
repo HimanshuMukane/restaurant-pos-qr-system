@@ -1,0 +1,927 @@
+/* ==========================================================================
+   Variables & Base
+   ========================================================================== */
+   :root {
+    /* Colors */
+    --c-available: #28a745;
+    --c-occupied:  #fd7e14;
+    --c-unpaid:    #dc3545;
+    --c-primary:   #0ea5e9;
+    --c-admin:     #007bff;
+    --c-admin-h:   #0056b3;
+    --c-gray-btn:  #948e8e;
+    --c-muted:     #6b7280;
+    --c-border:    #e5e7eb;
+    --c-border-sub:#d1d5db;
+    --c-panel:     #f9f9f9;
+    --c-overlay:   rgba(0,0,0,.45);
+    --rail-w: 136px;
+  
+    /* Sizing */
+    --radius: 10px;
+    --radius-lg: 12px;
+    --gap: 6px;              /* main grid gap */
+    --shadow-sm: 0 0 4px rgba(0,0,0,0.1);
+    --shadow-md: 0 6px 14px rgba(0,0,0,.06);
+    --shadow-lg: 0 10px 30px rgba(0,0,0,.15);
+  
+    /* Floor plan grid defaults */
+    --cols: 12;
+    --cellw: 90px;
+    --rowh: 90px;
+  }
+  
+  /* Utils */
+  .hidden { display: none !important; }
+  .muted  { color: var(--c-muted); }
+  body.modal-open { overflow: hidden; } /* lock scroll when a modal is open */
+  body { background: #e5e7eb; }
+  
+  /* ==========================================================================
+     Layout: Dashboard, Panels, Rail
+     ========================================================================== */
+  .dashboard-wrapper {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: nowrap;   /* don't wrap on desktop */
+    min-width: 0;        /* allow children to shrink */
+    min-height: 0;
+  }
+  
+  .left-panel {
+    flex: 1 1 0%;
+    min-width: 0;
+    height: calc(100vh - 120px);
+    overflow: auto;      /* x/y scroll lives here */
+  }
+  
+  .right-panel {
+    flex: 0 0 500px;
+    background: var(--c-panel);
+    padding: 15px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .floor-rail {
+    flex: 0 0 var(--rail-w, 148px);
+    align-self: flex-start;
+    position: sticky;
+    top: 8px;
+    max-height: calc(100vh - 140px);
+    overflow: auto;
+    z-index: 5;
+    display: flex;
+  }
+
+  .rail-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 100%;
+  }
+
+  .rail-footer {
+    margin-top: auto;
+    display: grid;
+    gap: 6px;
+  }
+  
+  /* ==========================================================================
+     Top Buttons (Logout & Menu Admin)
+     ========================================================================== */
+  .btn-admin,
+  .logout-button {
+    display: inline-block;
+    padding: 16px 24px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 1;
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+    border: 1px solid transparent;
+    color: #fff;
+  }
+  
+  .btn-admin { background: var(--c-admin); }
+  .btn-admin:hover { background: var(--c-admin-h); }
+  .logout-button { background: var(--c-gray-btn); }
+  
+  /* ==========================================================================
+     Floor Plan Grid
+     ========================================================================== */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), var(--cellw));
+    grid-auto-rows: var(--rowh);
+    gap: var(--gap);
+    width: max-content;          /* enable horizontal scroll if wider than view */
+  }
+  
+  /* Optional debug */
+  .layout-debug .grid {
+    background-image:
+      linear-gradient(to right, rgba(0,0,0,.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,.08) 1px, transparent 1px);
+    background-size: var(--cellw) var(--rowh);
+  }
+  
+  /* ==========================================================================
+     Table Cards
+     ========================================================================== */
+  .table-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: clamp(4px, calc(var(--cellw) * 0.3), 12px);
+    text-align: center;
+    font-weight: 700;
+    font-size: clamp(10px, calc(var(--cellw) * 0.45), 16px);
+    color: #fff;
+    text-decoration: none;
+    border: 1px solid transparent; /* lets modifiers change border-color cleanly */
+    line-height: 1.25;
+    box-sizing: border-box;
+    overflow: hidden; /* keep content contained inside the tile */
+    transition: transform .08s ease, filter .12s ease, box-shadow .12s ease;
+  }
+
+  .table-box.nav-pending {
+    transform: scale(0.98);
+    filter: saturate(1.08) brightness(0.96);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7);
+  }
+  
+  .table-box.circle { border-radius: 9999px; }
+  
+  /* States */
+  .available { background: var(--c-available); }
+  .occupied  { background: var(--c-occupied); }
+  .unpaid    { background: var(--c-unpaid); }
+
+  .table-box.occupied {
+    color: #111;
+  }
+  .table-box.occupied .guest-line {
+    color: #111;
+  }
+  .table-box.occupied .table-amount {
+    background: rgba(255,255,255,0.55);
+    color: #111;
+  }
+  
+  /* Optional: differentiate available-but-reserved */
+  .table-box.available.reserved {
+    background: #fff3cd;  /* soft amber */
+    border-color: #ffeeba;
+    color: #111;
+  }
+  
+  /* Content layout inside table tiles */
+  .table-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 100%;
+    max-width: 100%;
+    word-break: break-word;
+  }
+  .guest-line {
+    font-weight: 700;
+    font-size: clamp(10px, calc(var(--cellw) * 0.18), 12px);
+    line-height: 1.1;
+    color: #fff;
+    white-space: normal;
+    word-break: break-word;
+    text-align: center;
+    max-width: 100%;
+  }
+  .table-main {
+    font-size: clamp(12px, calc(var(--cellw) * 0.45), 18px);
+    font-weight: 800;
+    white-space: normal;
+    word-break: break-word;
+    max-width: 100%;
+    line-height: 1.1;
+  }
+  .table-sub {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    max-width: 100%;
+  }
+  .table-amount {
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(0,0,0,.16);
+    color: inherit;
+    font-size: clamp(10px, calc(var(--cellw) * 0.2), 13px);
+    white-space: normal;
+    word-break: break-word;
+    max-width: 100%;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .table-pax {
+    opacity: 0.9;
+    white-space: normal;
+    word-break: break-word;
+    max-width: 100%;
+  }
+  
+  /* Optional: coord badge bottom-right (toggle via .layout-badges on parent) */
+  .table-box .coord-badge {
+    display: none;
+    position: absolute; bottom: 4px; right: 6px;
+    padding: 2px 6px; border-radius: 6px;
+    background: rgba(0,0,0,.6); color:#fff; font-size: 8px; font-weight: 700;
+  }
+  .layout-badges .table-box .coord-badge { display: inline-block; }
+  
+  /* Selection + resize affordance (edit mode) */
+  .table-box.is-selected {
+    outline: 2px solid var(--c-primary); outline-offset: 2px;
+    box-shadow: 0 0 0 3px rgba(14,165,233,.25);
+  }
+  .table-box .resize-handle {
+    display: none;
+    position: absolute; width: 12px; height: 12px; right: 2px; bottom: 2px;
+    border-right: 2px solid #fff; border-bottom: 2px solid #fff;
+  }
+  .layout-edit .table-box.is-selected .resize-handle { display: block; }
+  
+  /* ==========================================================================
+     Tables & Badges
+     ========================================================================== */
+  .reservation-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .reservation-table th,
+  .reservation-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+  }
+  .reservation-table th {
+    background: #f2f2f2;
+    font-weight: bold;
+    text-align: left;
+  }
+  .reservation-table .badge.warn {
+    background: #fffbe6;
+    border: 1px solid #ffe58f;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+  tr.res-due { background: #fffdf2; }
+  
+  /* ==========================================================================
+     Floor Switcher (lives in footer dock by default)
+     ========================================================================== */
+  .floor-switcher {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    justify-content: center;
+    padding: 8px 10px;
+    background: #cbd5e1;
+    border-top: 1px solid #94a3b8;
+  }
+  
+  .rail-btn,
+  .floor-btn {
+    display: block;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #bae6fd;
+    background: #e0f2fe;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+    text-decoration: none;
+    color: #0f172a;
+  }
+
+  .rail-btn:hover,
+  .floor-btn:hover {
+    background: #bae6fd;
+  }
+
+  .floor-btn.active {
+    background: #2563eb;
+    border-color: #1d4ed8;
+    color: #fff;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+  }
+
+  @keyframes floorQrGlow {
+    0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.2), 0 0 0 rgba(168, 85, 247, 0.35); }
+    50% { box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.22), 0 0 16px rgba(168, 85, 247, 0.55); }
+    100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.2), 0 0 0 rgba(168, 85, 247, 0.35); }
+  }
+
+  .floor-btn.has-qr-unsent:not(.active) {
+    background: linear-gradient(180deg, #f3e8ff 0%, #e9d5ff 100%);
+    border-color: #a855f7;
+    color: #581c87;
+    animation: floorQrGlow 1.4s ease-in-out infinite;
+  }
+
+  .rail-btnform {
+    margin: 0;
+  }
+  /* Sticky footer container that hosts the switcher */
+  .footer-dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 900;
+    display: grid;
+    gap: 10px;
+    padding: 12px 18px;
+    font-size: 16px;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid #eee;
+  }
+  
+  /* When inside the dock, flatten the switcher chrome */
+  .footer-dock .floor-switcher {
+    position: static;
+    padding: 0;
+    background: transparent;
+    border-top: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .rail-user {
+    display: grid;
+    gap: 4px;
+  }
+  .rail-user-name { font-weight: 700; }
+  .rail-user-role { font-size: 12px; color: var(--c-muted); }
+  .rail-user-clock { font-variant-numeric: tabular-nums; font-weight: 700; }
+  
+  @media (max-aspect-ratio: 4/3), (max-width: 1280px) {
+    .dashboard-wrapper { flex-wrap: wrap; }
+    .left-panel  { order: 1; width: 100%; height: auto; }
+    .floor-rail  { order: 2; width: 100%; position: static; max-height: none; }
+    .rail-stack  { min-height: 0; }
+  }
+  
+  /* ==========================================================================
+     Modals / Overlays (unified)
+     ========================================================================== */
+  .modal-overlay,
+  .popup {
+    position: fixed;
+    inset: 0;
+    background: var(--c-overlay);
+    display: none;                  /* toggle to flex in JS */
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+  .modal-card,
+  .popup-content {
+    background: #fff;
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    width: 92%;
+    max-width: 560px;               /* can override inline per modal */
+    box-shadow: var(--shadow-lg);
+  }
+  
+  /* Modal form controls */
+  .modal-card input,
+  .modal-card select,
+  .modal-card textarea,
+  .popup-content input,
+  .popup-content select,
+  .popup-content textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--c-border-sub);
+    box-sizing: border-box;
+  }
+  
+  /* ==========================================================================
+     Buttons (actions)
+     ========================================================================== */
+  .action-button {
+    display: inline-block;
+    min-height: 40px;                /* touch friendly */
+    padding: 8px 12px;
+    font-size: 15px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--c-primary);
+    color: #fff;
+    cursor: pointer;
+  }
+  .action-button.outline {
+    background: #fff; color: #111; border: 1px solid var(--c-border);
+  }
+  .action-button.success { background: #22c55e; color: #fff; }
+  .action-button.danger-button { background: #ef4444; color: #fff; }
+  .res-actions .action-button { margin-right: 8px; }
+  
+  /* Slightly larger primary CTA */
+  .add-reservation-button {
+    margin-bottom: 6px;
+    font-weight: 600;
+    padding: 10px 14px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+
+  .right-panel .action-button.outline {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+    color: #0f172a;
+  }
+  .right-panel .action-button.outline:hover {
+    background: #cbd5e1;
+  }
+  
+  /* ==========================================================================
+     User Card
+     ========================================================================== */
+  .user-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #fff;
+    border: 1px solid var(--c-border);
+    box-shadow: var(--shadow-md);
+  }
+  .user-id { display: flex; align-items: center; gap: 10px; }
+  .avatar-circle {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--c-primary); color: #fff; font-weight: 700;
+  }
+  .user-texts .name { font-weight: 700; line-height: 1.1; }
+  .user-texts .role { font-size: 12px; color: var(--c-muted); }
+  #clock { font-variant-numeric: tabular-nums; font-weight: 700; }
+  
+  /* ==========================================================================
+     Simple Grid Helpers (forms)
+     ========================================================================== */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1.2fr .6fr .8fr; gap: 12px; }
+  
+  /* ==========================================================================
+     Layout Toolbar & Grid Controls
+     ========================================================================== */
+  .layout-toolbar {
+    display: flex; gap: 10px; align-items: center;
+    padding: 10px 12px; margin-bottom: 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    background: #fff;
+    box-shadow: var(--shadow-md);
+  }
+  .layout-toolbar .chk { font-size: 14px; display:flex; align-items:center; gap:6px; }
+
+  .layout-toggle {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 950;
+  }
+  body.layout-edit .layout-toggle { display: none; }
+
+  .layout-panel {
+    position: fixed;
+    right: 14px;
+    top: 14px;
+    width: 360px;
+    max-width: calc(100vw - 28px);
+    max-height: calc(100vh - 28px);
+    overflow: auto;
+    display: none;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    box-shadow: 0 16px 40px rgba(15,23,42,0.25);
+    z-index: 960;
+  }
+  body.layout-edit .layout-panel { display: grid; }
+
+  .layout-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .layout-panel-title { font-size: 16px; font-weight: 800; color: #0f172a; }
+  .layout-panel-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .layout-close { min-height: 32px; padding: 6px 10px; font-size: 13px; }
+
+  .layout-panel .grid-controls,
+  .layout-panel .grid-gran,
+  .layout-panel .edit-actions {
+    display: grid;
+    gap: 8px;
+  }
+  .layout-panel .grid-gran {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .layout-panel .edit-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .layout-panel .chk {
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .layout-panel .coord {
+    font-size: 12px;
+    color: #475569;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    padding: 6px 8px;
+    border-radius: 8px;
+  }
+  
+  .grid-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .grid-controls label { font-size: 12px; color: #374151; display: grid; gap: 4px; }
+  .grid-controls input { width: 100%; padding: 6px 8px; font-size: 13px; }
+  
+  .order-pane{
+    display:grid;
+    grid-template-rows: 1fr auto;   /* scroll area + totals */
+    height: 100%;
+    min-height:0;
+    border: 1px solid #eee;
+    border-radius:10px;
+  }
+  
+  /* the scrolling container for the table */
+  .order-scroll{
+    min-height:0;
+    overflow:auto;
+  }
+  
+  /* sticky header sticks within .order-scroll */
+  .order-table thead th{
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background:#fff;
+    border-bottom:1px solid #eee;
+  }
+  
+  /* totals stick at the bottom of left panel */
+  .order-totals{
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    background: #fff;
+    border-top: 1px solid #eee;
+    padding: 8px;
+    display: grid;
+    gap: 6px;
+  }
+
+.inline-tray td{ padding:6px 8px; background:#fafafa; border-top:1px solid #eee }
+.inline-tray .tray{ display:flex; gap:6px; flex-wrap:wrap }
+.inline-tray .tray-btn{
+  padding:6px 10px; font-size:13px; border-radius:8px; border:1px solid #ddd; background:#fff; cursor:pointer
+}
+.inline-tray .tray-btn.danger{ border-color:#f3b1b1; color:#b20000; background:#fff5f5 }
+
+/* Billing: light-blue pulsing */
+@keyframes billPulse {
+  0%, 100% {
+    background: #64cbf0;          /* sky-100 */
+    border-color: #6eb1ff;        /* blue-300 */
+    box-shadow: 0 0 0 0 rgba(59,130,246,.28);
+  }
+  50% {
+    background: #8edcf8;
+    border-color: #8ebdff;
+    box-shadow: 0 0 0 2px rgba(59,130,246,.12);
+  }
+}
+
+/* Make billing win over occupied/available and animate */
+.table-box.billing,
+.table-box.occupied.billing {
+  background: #8ebffc;            /* sky-200 (base between pulses) */
+  color: #0f172a;                  /* slate-900 for readability on white phase */
+  border-color: #60a5fa;           /* blue-400 */
+  animation: billPulse 1.4s ease-in-out infinite;
+}
+
+/* Keep the guest label readable during white phase */
+.table-box.billing .guest-line { color: #0f172a; }
+
+/* Optional: stop motion for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .table-box.billing,
+  .table-box.occupied.billing {
+    animation: none;
+  }
+}
+
+/* Make rail tiles match floor buttons and prevent horizontal overflow */
+.floor-rail { overflow-x: hidden; }                  /* no horizontal scrollbar */
+.rail-stack { width: 100%; }                         /* children measure against rail width */
+
+/* One column, full-width tiles */
+.floor-switcher,
+.rail-footer {
+  grid-template-columns: 1fr;
+}
+
+/* Same box model + size for all rail tiles */
+.rail-btn,
+.floor-btn,
+.rail-footer .rail-user,
+.rail-btnform > .rail-btn {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  padding: 10px 12px;             /* same as .floor-btn */
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+  background: #e0f2fe;
+  font-size: 16px;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Keep Menu Admin (link) and Logout (button) colors you had before */
+a.rail-btn { color: inherit; }     /* ensure link text inherits like buttons */
+
+/* User card looks like a button-sized tile but keeps inner layout */
+.rail-footer .rail-user {
+  color: inherit;
+  background: #f8fafc;             /* keep visible on gray page */
+  border-color: #e2e8f0;
+  display: grid;
+  gap: 4px;
+  text-align: left;                /* usually nicer for multi-line */
+}
+
+/* Avoid the user tile forcing overflow with long names/roles */
+.rail-user-name,
+.rail-user-role,
+.rail-user-clock {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Make the logout <button> inside the <form> stretch like the others */
+.rail-btnform { width: 100%; }
+.rail-btnform > .rail-btn { width: 100%; }
+
+/* Optional: enforce a consistent minimum height to match */
+.rail-btn,
+.floor-btn,
+.rail-footer .rail-user {
+  min-height: 44px;               /* tweak to taste */
+}
+
+.layout-edit .left-panel { overflow: auto; }
+.layout-edit .grid {
+  transform: none !important;
+  transform-origin: top left !important;
+  margin: 0 !important;
+}
+
+/* Keep pixel tracks everywhere (consistent across floors & viewports) */
+.floor-container .grid{
+  grid-template-columns: repeat(var(--cols), var(--cellw)) !important;
+  grid-auto-rows: var(--rowh) !important;
+  gap: var(--gap) !important;
+  width: max-content !important;
+}
+
+/* =======================
+   Reservation coloring
+   ======================= */
+
+/* Available + reserved (soft pink) */
+.table-box.available.reserved {
+  background: #ffd1e6;           /* soft pink */
+  border-color: #ff9fc8;
+  color: #111;
+}
+.table-box.available.reserved .guest-line {
+  color: #111;
+}
+
+/* Available + reserved + lockout (stronger pink) */
+.table-box.available.reserved.reserved-lockout {
+  background: #ff9fc8;           /* stronger pink */
+  border-color: #ff7fb9;
+  color: #111;
+}
+.table-box.available.reserved.reserved-lockout .guest-line {
+  color: #111;
+}
+
+/* Occupied + has future reservation (dark pink) */
+.table-box.occupied.reserved-active {
+  background: #d946ef;           /* fuchsia-500-ish */
+  border-color: #c026d3;
+}
+
+/* Occupied + reservation due within 60m (pink pulse) */
+@keyframes resPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(219,39,119,.30);
+    transform: translateZ(0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(219,39,119,.15);
+  }
+}
+.table-box.occupied.reserved-active.conflict-pulsate {
+  animation: resPulse 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .table-box.occupied.reserved-active.conflict-pulsate { animation: none; }
+}
+
+/* Occupied + future reservation FAR away (>120m): half orange/half pink */
+.table-box.occupied.reserved-split {
+  background: linear-gradient(135deg, var(--c-occupied) 50%, #ffd1e6 50%);
+  border-color: #ff9fc8;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,.30);
+}
+
+/* When there's a conflict (≤120m), the reservation warning should win over billing */
+.table-box.billing.reserved-active,
+.table-box.occupied.billing.reserved-active {
+  background: #d946ef;       /* same dark pink */
+  border-color: #c026d3;
+  color: #fff;
+  animation: resPulse 1.2s ease-in-out infinite;
+}
+
+/* If it's a far-away reservation and already billing, keep the split look (no pulse) */
+.table-box.billing.reserved-split {
+  background: linear-gradient(135deg, var(--c-occupied) 50%, #ffd1e6 50%);
+  color: #fff;
+  animation: none;
+}
+
+/* Red alert for UNSENT orders */
+.table-box.unsent {
+  background: #b91c1c !important; /* red */
+  color: #fff !important;
+  box-shadow: 0 0 0 3px rgba(185,28,28,.25) inset, 0 0 12px rgba(185,28,28,.45);
+}
+
+/* Optional gentle pulse to catch attention */
+@keyframes unsentPulse {
+  0% { box-shadow: 0 0 0 3px rgba(185,28,28,.25) inset, 0 0 8px rgba(185,28,28,.35); }
+  50%{ box-shadow: 0 0 0 3px rgba(185,28,28,.25) inset, 0 0 16px rgba(185,28,28,.55); }
+  100%{box-shadow: 0 0 0 3px rgba(185,28,28,.25) inset, 0 0 8px rgba(185,28,28,.35); }
+}
+.table-box.unsent { animation: unsentPulse 1.6s ease-in-out infinite; }
+
+/* If the tile is under a reservation state, reservation visuals win — no red. */
+.table-box.reserved,
+.table-box.reserved-lockout,
+.table-box.reserved-active,
+.table-box.reserved-split {
+}
+
+:root {
+  --c-reserved:        #f7c2d1;  /* soft pink */
+  --c-reserved-strong: #f3a1b8;  /* stronger pink */
+  --c-qr-unsent:       #6b21a8;  /* dark purple */
+  --c-qr-unsent-bright:#a855f7;  /* bright purple */
+  --c-qr-unsent-dark:  #4c1d95;  /* deeper purple */
+}
+
+/* Make sure table tiles can show custom backgrounds */
+.table-box {
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+/* Reservation + unsent → half RED (unpaid) / half PINK (reserved) */
+.table-box.unsent.unsent-split {
+  /* diagonal 50/50 split */
+  background-image: linear-gradient(
+    135deg,
+    var(--c-unpaid) 0%,
+    var(--c-unpaid) 50%,
+    var(--c-reserved-strong) 50%,
+    var(--c-reserved-strong) 100%
+  ) !important;
+  /* Optional: stronger border so it pops */
+  outline: 2px solid var(--c-unpaid);
+  outline-offset: -2px;
+}
+
+/* Within 120-min lockout we use 'reserved-active' (darker/pulsing).
+   Keep the same half red / half pink when unsent is present. */
+.table-box.unsent.unsent-split.reserved-active,
+.table-box.unsent.unsent-split.reserved-lockout {
+  background-image: linear-gradient(
+    135deg,
+    var(--c-unpaid) 0%,
+    var(--c-unpaid) 50%,
+    var(--c-reserved-strong) 50%,
+    var(--c-reserved-strong) 100%
+  ) !important;
+}
+
+/* If you also show the “>120 min” style with reserved-split class,
+   keep the same override when unsent is present. */
+.table-box.unsent.unsent-split.reserved-split {
+  background-image: linear-gradient(
+    135deg,
+    var(--c-unpaid) 0%,
+    var(--c-unpaid) 50%,
+    var(--c-reserved) 50%,
+    var(--c-reserved) 100%
+  ) !important;
+}
+
+/* QR-origin unsent orders: teal gradient to differentiate from walk-in */
+.table-box.unsent.qr-unsent {
+  background-image: linear-gradient(
+    135deg,
+    var(--c-qr-unsent-dark) 0%,
+    var(--c-qr-unsent) 45%,
+    var(--c-qr-unsent-bright) 100%
+  ) !important;
+  color: #fff !important;
+  border-color: var(--c-qr-unsent);
+  box-shadow: 0 0 0 3px rgba(107,33,168,.22) inset, 0 0 12px rgba(107,33,168,.40);
+}
+
+.table-box.unsent.qr-unsent.unsent-split,
+.table-box.unsent.qr-unsent.unsent-split.reserved-active,
+.table-box.unsent.qr-unsent.unsent-split.reserved-lockout {
+  background-image: linear-gradient(
+    135deg,
+    var(--c-qr-unsent) 0%,
+    var(--c-qr-unsent) 50%,
+    var(--c-reserved-strong) 50%,
+    var(--c-reserved-strong) 100%
+  ) !important;
+  outline: 2px solid var(--c-qr-unsent);
+  outline-offset: -2px;
+}
+
+.table-box.unsent.qr-unsent.unsent-split.reserved-split {
+  background-image: linear-gradient(
+    135deg,
+    var(--c-qr-unsent) 0%,
+    var(--c-qr-unsent) 50%,
+    var(--c-reserved) 50%,
+    var(--c-reserved) 100%
+  ) !important;
+}
+
+/* Occupied tables that have a session but zero items yet */
+.table-box.occupied.empty-session {
+  background-color: #f2d870; /* soft yellow */
+  border-color: #fbbf24;     /* yellow-ish border */
+  color: #78350f;            /* darker text so it's readable */
+}

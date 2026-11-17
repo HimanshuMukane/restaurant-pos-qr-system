@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/kbd.css') }}">
+  <script>
+    window.POS_CONFIG = {{ pos_config|tojson|safe }};
+    window.POS_CLICK_DEBOUNCE_MS = {{ pos_config.get('ui', {}).get('click_debounce_ms', 100) }};
+  </script>
+</head>
+<body>
+  <div class="dashboard-wrapper">
+    <div class="left-panel">
+      <div id="floorContainers">
+        {% for f in floors %}
+          {% set layout = floor_layouts.get(f|string) %}
+          <div class="floor-container" data-floor="{{ f }}" style="{% if loop.first %}display:block;{% else %}display:none;{% endif %}">
+            <div
+              class="grid"
+              style="
+                --cols: {{ (layout.grid_cols if layout else 18) }};
+                --rowh: {{ (layout.grid_row_px if layout else 90) }}px;
+                --cellw: {{ (layout.grid_row_px if layout else 90) }}px;
+                --gap: {{ (layout.grid_gap_px if layout else 6) }}px;">
+
+              {# safe default for reserved_state #}
+              {% set __resmap = reserved_state or {} %}
+
+              {% for table in tables if table.floor == f %}
+                {% set table_number = table.number %}
+                {% set session_id   = session_map.get(table_number) %}
+                {% set box          = (layout.boxes.get(table_number) if layout and layout.boxes else None) %}
+                {% set shape_class  = 'circle' if box and box.get('shape') == 'circle' else '' %}
+                {% set style = '' %}
+                {% if box %}
+                  {% set style = "grid-column:%s / span %s; grid-row:%s / span %s;"|format(box.get('c',1), box.get('w',1), box.get('r',1), box.get('h',1)) %}
+                {% endif %}
+
+                {# correct blueprint endpoints #}
+                {% set link = session_id
+                  and url_for('sessions.view_session', table_number=table_number, session_id=session_id)
+                  or  url_for('sessions.view_table',   table_number=table_number) %}
+
+                {% set is_billing = billing_map and billing_map.get((table_number|string)|trim) %}
+
+                {% set is_empty = empty_session_map and empty_session_map.get((table_number|string)|trim) %}
+
+                {# reservation state + classes #}
+                {% set res = __resmap.get(table_number|string) %}
+                {% if res %}
+                  {% if session_id %}
+                    {# OCCUPIED + reservation #}
+                    {% set cls_reserved = 'reserved-split' if res.minutes > 120 else 'reserved-active conflict-pulsate' %}
+                  {% else %}
+                    {# AVAILABLE + reservation #}
+                    {% set cls_reserved = 'reserved' ~ (' reserved-lockout' if res.minutes <= 120 else '') %}
+                  {% endif %}
+                {% else %}
+                  {% set cls_reserved = '' %}
+                {% endif %}
+                
+                <a href="{{ link }}"
+                  class="table-box
+                        {{ 'occupied' if session_id else 'available' }}
+                        {{ 'billing' if is_billing else '' }}
+                        {{ 'empty-session' if is_empty and session_id else '' }}
+                        {{ cls_reserved }}
+                        {{ shape_class }}"
+                  data-floor="{{ f }}"
+                  data-table="{{ table_number }}"
+                  data-max-pax="{{ table.max_pax }}"
+                  data-billing="{{ 1 if is_billing else 0 }}"
+                  data-empty="{{ 1 if is_empty and session_id else 0 }}"
+                  {% if res %} data-res-minutes="{{ res.minutes }}" {% endif %}
+                  style="{{ style }}">
+                  {% set g = (active_guest_map.get(table_number) or '').strip() %}
+                  {% set amt = bill_totals_map.get(table_number|string) %}
+
+                  <div class="table-body">
+                    {% if g %}<div class="guest-line">{{ g }}</div>{% endif %}
+                    <div class="table-main">{{ table_number }}</div>
+                    <div class="table-sub">
+                      {% if session_id and amt is not none %}
+                        <span class="table-amount">Rp {{ "{:,.0f}".format(amt).replace(",", ".") }}</span>
+                      {% elif session_id %}
+                        <span class="table-amount muted">Rp --</span>
+                      {% else %}
+                        <span class="table-pax">Max: {{ table.max_pax }}</span>
+                      {% endif %}
+                    </div>
+                  </div>
+
+                  <span class="coord-badge" aria-hidden="true"></span>
+                  <span class="resize-handle" aria-hidden="true"></span>
+                </a>
+
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <aside class="floor-rail">
+      <div class="rail-stack">
+        <!-- Top: floor buttons -->
+        <div class="floor-switcher floor-switcher--side">
+          {% for f in floors %}
+            <button
+              class="floor-btn {% if loop.first %}active{% endif %}"
+              data-floor="{{ f }}"
+              onclick="setFloor('{{ f }}')">
+              Lantai {{ f }}
+            </button>
+          {% endfor %}
+        </div>
+
+        <!-- Bottom: action tiles -->
+        <div class="rail-footer">
+          <a class="rail-btn" href="{{ url_for('takeaway.index') }}">Take Away</a>
+
+
+          <a class="rail-btn" href="{{ url_for('reservations.reservations_lookup') }}">Reservasi</a>
+
+
+          {% if current_user %}
+            {% set roles_text = (current_user.roles|default(current_user.role, true)|default('', true))|string|lower %}
+            {% if 'admin' in roles_text or 'cashier' in roles_text %}
+              <a href="{{ url_for('menu_admin') }}" class="rail-btn">Menu Admin</a>
+            {% endif %}
+          {% endif %}
+
+          <form action="{{ url_for('logout') }}" method="POST" class="rail-btnform">
+            <button type="submit" class="rail-btn">Logout</button>
+          </form>
+
+          <div class="rail-btn rail-user">
+            <div class="rail-user-name">{{ (current_user.full_name) if current_user else '—' }}</div>
+            <div class="rail-user-role">
+              {% if current_user and current_user.roles %}
+                {{ ', '.join(current_user.roles) }}
+              {% elif current_user and current_user.role %}
+                {{ current_user.role }}
+              {% else %}user{% endif %}
+            </div>
+            <div class="rail-user-clock" id="clock" aria-live="polite">--:--:--</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  {% if current_user and (('admin' in (current_user.roles or [])) or (current_user.role == 'admin')) %}
+    <div class="layout-toggle">
+      <button class="action-button outline" id="layoutToggleBtn" onclick="Layout.toggleEdit()">Edit Layout</button>
+    </div>
+
+    <div class="edit-hint layout-panel" id="layoutPanel" aria-hidden="true">
+      <div class="layout-panel-head">
+        <div>
+          <div class="layout-panel-title">Layout Editor</div>
+          <div class="layout-panel-sub">Klik meja untuk pilih. Drag untuk pindah. Shift + panah untuk resize.</div>
+        </div>
+        <button class="action-button outline layout-close" onclick="Layout.toggleEdit()">Close</button>
+      </div>
+
+      <div class="grid-controls">
+        <label>Cols <input id="gridCols" type="number" min="6" max="480" step="1"></label>
+        <label>Cell (px) <input id="gridCell" type="number" min="30" max="160" step="2"></label>
+        <label>Gap (px) <input id="gridGap" type="number" min="0" max="40" step="1"></label>
+      </div>
+
+      <div class="grid-gran">
+        <button class="action-button outline" onclick="Layout.scaleGranularity(0.5)">/2 finer</button>
+        <button class="action-button outline" onclick="Layout.scaleGranularity(2)">×2 finer</button>
+        <button class="action-button outline" onclick="Layout.scaleGranularity(5)">×5 finer</button>
+        <button class="action-button outline" onclick="Layout.scaleGranularity(10)">×10 finer</button>
+        <button class="action-button outline" onclick="Layout.fitGridToViewport({ allowGrow: true, force: true })">Fit to screen</button>
+      </div>
+
+      <label class="chk"><input type="checkbox" id="chkGrid" onchange="Layout.toggleGrid(this.checked)"> Grid</label>
+      <label class="chk"><input type="checkbox" id="chkBadges" onchange="Layout.toggleBadges(this.checked)" checked> Coords</label>
+      <div class="coord" id="coordReadout">c:– r:– w:– h:–</div>
+      <div class="edit-actions">
+        <button class="action-button" onclick="Layout.save()">Save</button>
+        <button class="action-button danger-button" onclick="Layout.cancel()">Cancel</button>
+      </div>
+    </div>
+  {% endif %}
+
+  <script defer src="{{ url_for('static', filename='vendor/socket.io.v4.7.5.min.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='js/realtime.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='js/kbd.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='js/edit_layout.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='js/floor_live.js') }}"></script>
+
+  
+  <script>window.DEFAULT_FLOOR = "{{ floors[0] if floors else '' }}";</script>
+  
+</body>
+</html>

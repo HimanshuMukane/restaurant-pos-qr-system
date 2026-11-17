@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>{% block title %}Admin{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/menu_admin.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/demo_mode.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/kbd.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/numpad.css') }}">
+  <script>
+    window.POS_CLICK_DEBOUNCE_MS = {{ pos_config.get('ui', {}).get('click_debounce_ms', 100) }};
+    window.POS_DEMO_MODE = {{ "true" if demo_mode else "false" }};
+  </script>
+  <script defer src="{{ url_for('static', filename='js/demo_mode.js') }}?v={{ ASSET_VER }}"></script>
+  {% block head_extra %}{% endblock %}
+  <style>
+    .wrap { max-width:1200px; margin:24px auto; padding:0 12px; }
+    .tabs { display:flex; gap:8px; margin:8px 0 16px; }
+    .tab { border:1px solid #e5e7eb; background:#f8fafc; padding:8px 14px; border-radius:8px; text-decoration:none; color:#111; }
+    .tab.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+    .btn-back { padding:8px 12px; background:#ff6565; color:#fff; border-radius:6px; text-decoration:none; font-weight:700; display:inline-block; margin-bottom:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a href="{{ url_for('dashboard') }}" class="btn-back">Kembali ke Dashboard</a>
+    <h2>{% block heading %}{% endblock %}</h2>
+
+    <div class="tabs">
+      <a href="{{ url_for('menu_admin') }}"
+         class="tab {{ 'active' if active_tab == 'menu' else '' }}">Menu</a>
+      <a href="{{ url_for('analytics_page') }}"
+         class="tab {{ 'active' if active_tab == 'analytics' else '' }}">Analitik</a>
+      <a href="{{ url_for('transactions_page') }}" 
+         class="tab {{ 'active' if active_tab=='transactions' else '' }}">Transaksi</a>
+      {% if is_admin %}
+         <a href="{{ url_for('admin.page') }}"
+            class="tab {{ 'active' if active_tab=='admin' else '' }}">Admin</a>
+      {% endif %}
+    </div>
+
+    {% block content %}{% endblock %}
+  </div>
+  <script src="{{ url_for('static', filename='js/numpad.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/kbd.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

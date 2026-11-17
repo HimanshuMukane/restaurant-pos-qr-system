@@ -1,0 +1,524 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Analitik{% endblock %}
+{% set active_tab = 'analytics' %}
+{% block heading %}Analitik{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}?v={{ ASSET_VER }}">
+  <style>
+    .filters { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .filters .spacer { flex:1 1 auto; }
+    .chips { display:flex; flex-wrap:wrap; gap:8px; }
+    .chip { border:1px solid #e5e7eb; background:#000; padding:6px 10px; border-radius:999px; cursor:pointer; }
+    .chip.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+    .filters input[type="date"] { padding:6px 8px; }
+    .filters button#applyFilters { padding:6px 12px; }
+    /* 4:3-first: 4 columns by default, collapse to 2 on narrow */
+    .kpi-grid { display:grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap:10px; }
+    @media (max-width: 1200px){ .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    .kpi.highlight { background:#f0f7ff; }
+    .muted { color:#667085; font-size:12px; }
+  
+    /* 4:3-friendly cards/grids */
+    .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width: 1200px), (max-aspect-ratio: 4/3) { .grid-2 { grid-template-columns: 1fr; } }
+  
+    .chart-box { height: 260px; position: relative; }
+    .chart-box.tall { height: 300px; }
+    @media (max-aspect-ratio: 4/3) {
+      .chart-box { height: 220px; }
+      .chart-box.tall { height: 260px; }
+    }
+  </style>
+  
+  <!-- Chart.js loader with local fallback -->
+  <script>
+  (function () {
+    function add(src, ok, fail) {
+      var s = document.createElement('script');
+      s.src = src; s.async = true; s.onload = ok || function(){}; s.onerror = fail || function(){};
+      document.head.appendChild(s);
+    }
+    function signal() { if (window.Chart) window.dispatchEvent(new Event('chartjs:ready')); }
+    add('https://cdn.jsdelivr.net/npm/chart.js@4.4.4', signal, function () {
+      add('{{ url_for("static", filename="vendor/chart.4.4.4.min.js") }}', signal);
+    });
+  })();
+  </script>
+{% endblock %}
+{% block head_extra %}{{ self.extra_head() }}{% endblock %}
+
+{% block content %}
+  <div class="filters">
+    <label>Dari</label><input type="date" id="fromDate" lang="id">
+    <label>Sampai</label><input type="date" id="toDate" lang="id">
+    <div class="spacer"></div>
+    <div class="chips" id="quickRanges">
+      <button class="chip" data-range="today">Hari ini</button>
+      <button class="chip" data-range="yesterday">Kemarin</button>
+      <button class="chip" data-range="7d">7 hari</button>
+      <button class="chip" data-range="mtd">Bulan ini</button>
+      <button class="chip" data-range="30d">30 hari</button>
+      <button class="chip" data-range="ytd">Tahun ini</button>
+    </div>
+    <button id="applyFilters">Terapkan</button>
+  </div>
+
+  <div id="analytics-tabs" class="tabs">
+    <button class="tab active" data-tab="overview">Ringkasan</button>
+    <button class="tab" data-tab="trends">Tren</button>
+    <button class="tab" data-tab="sales">Penjualan</button>
+    <button class="tab" data-tab="items">Item</button>
+    <button class="tab" data-tab="qr">QR</button>
+    <button class="tab" data-tab="ops">Operasional</button>
+    <button class="tab" data-tab="reservations">Reservasi</button>
+    <button class="tab" data-tab="staff">Staf</button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <section id="tab-overview" class="tab-panel active">
+    <div class="kpi-grid">
+      <div class="kpi highlight">
+        <div class="kpi-title">Gross (Final)</div>
+        <div id="kpiGross" class="kpi-val">Rp 0</div>
+      </div>
+      <div class="kpi"><div class="kpi-title">Outstanding (- Svc/Tax)</div><div id="kpiOutstanding" class="kpi-val">Rp 0</div></div>
+      <div class="kpi"><div class="kpi-title">Kas Masuk (Net)</div><div id="kpiNet" class="kpi-val">Rp 0</div></div>
+      <div class="kpi"><div class="kpi-title">Refunds (Net)</div><div id="kpiRefunds" class="kpi-val">Rp 0</div></div>
+      <div class="kpi"><div class="kpi-title">Buka Ulang (Net)</div><div id="kpiReopen" class="kpi-val">Rp 0</div></div>
+      <div class="kpi"><div class="kpi-title">Transaksi</div><div id="kpiPay" class="kpi-val">0</div></div>
+      <div class="kpi highlight"><div class="kpi-title">AOV / Sesi</div><div id="kpiAov" class="kpi-val">Rp 0</div></div>
+    </div>
+
+    <div class="card">
+      <h3>Ringkasan Komponen</h3>
+      <table>
+        <thead><tr><th>Komponen</th><th>Nilai</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Subtotal (sebelum service & pajak)</td>
+            <td id="sumSubtotal">Rp 0</td>
+          </tr>
+          <tr>
+            <td>Diskon</td>
+            <td id="sumDiscount">Rp 0</td>
+          </tr>
+          <tr>
+            <td>Service</td>
+            <td id="sumService">Rp 0</td>
+          </tr>
+          <tr>
+            <td>Pajak</td>
+            <td id="sumTax">Rp 0</td>
+          </tr>
+        
+          <!-- reused id: now shows (subtotal - diskon + service + pajak) -->
+          <tr>
+            <td>Setelah service & pajak (book)</td>
+            <td id="sumNetCollected">Rp 0</td>
+          </tr>
+        
+          <tr>
+            <td>Refunds (Net)</td>
+            <td id="sumRefunds">Rp 0</td>
+          </tr>
+          <tr>
+            <td>Reversal Buka Ulang (Net)</td>
+            <td id="sumReopen">Rp 0</td>
+          </tr>
+          <tr>
+            <td>Outstanding (- Svc/Tax)</td>
+            <td id="sumOutstanding">Rp 0</td>
+          </tr>
+          <tr>
+            <th>Gross (Final)</th>
+            <th id="sumGross">Rp 0</th>
+          </tr>
+        </tbody>        
+      </table>
+      <div class="muted" style="margin-top:6px;">Catatan: Takeaway otomatis service=0.</div>
+    </div>
+
+    <div class="card">
+      <h3>Insight</h3>
+      <table>
+        <tbody>
+          <tr><td>Jam tersibuk</td><td id="insPeakHour">-</td></tr>
+          <tr><td>Transaksi dengan diskon</td><td id="insDiscRate">-</td></tr>
+          <tr><td>Cash vs Non-Cash</td><td id="insCashShare">-</td></tr>
+          <tr><td>Sesi terbuka saat ini</td><td id="insOpenSessions">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Tren Penjualan (Harian)</h3>
+      <div class="chart-box tall">
+        <canvas id="chartSales"></canvas>
+      </div>
+      <div class="chart-empty" id="chartSalesEmpty" hidden>Tidak ada data untuk rentang tanggal ini.</div>
+    </div>
+  </section>
+
+  <!-- TRENDS -->
+  <section id="tab-trends" class="tab-panel">
+    <div class="card">
+      <div class="trend-filters">
+        <label>Unit waktu:</label>
+        <div class="chips" id="trendGroupChips">
+          <button class="chip active" data-group="hour">Per Jam</button>
+          <button class="chip" data-group="dow">Per Hari (Sen–Min)</button>
+          <button class="chip" data-group="month">Per Bulan</button>
+          <button class="chip" data-group="year">Per Tahun</button>
+        </div>
+      </div>
+    </div>
+  
+    <div class="trend-grid">
+      <div class="card">
+        <h3>Tren Pendapatan (Rata-rata)</h3>
+        <div class="chart-box tall">
+          <canvas id="chartTrendMoney"></canvas>
+        </div>
+        <div class="chart-empty" id="chartTrendMoneyEmpty" hidden>Tidak ada data.</div>
+      </div>
+  
+      <div class="card">
+        <h3>Tren Jumlah Transaksi (Rata-rata)</h3>
+        <div class="chart-box tall">
+          <canvas id="chartTrendTx"></canvas>
+        </div>
+        <div class="chart-empty" id="chartTrendTxEmpty" hidden>Tidak ada data.</div>
+      </div>
+  
+      <div class="card">
+        <h3>Tren Waktu Masuk</h3>
+        <div class="chart-box tall">
+          <canvas id="chartTrendArrivals"></canvas>
+        </div>
+        <div class="chart-empty" id="chartTrendArrivalsEmpty" hidden>Tidak ada data.</div>
+        <p class="muted" style="margin-top:6px;">
+          Berdasarkan <code>sessions.created_at</code> (jam duduk pelanggan).
+        </p>
+      </div>
+    </div>
+  </section>
+  
+  <!-- SALES -->
+  <section id="tab-sales" class="tab-panel">
+    <div class="grid-2">
+      <div class="card">
+        <h3>Metode Pembayaran</h3>
+        <table id="tablePayMix">
+          <thead>
+            <tr><th>Metode</th><th>Jumlah</th><th>Porsi</th></tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <th>Total</th>
+              <th id="paymixTotal">Rp 0</th>
+              <th id="paymixShare">100%</th>
+            </tr>
+          </tfoot>
+        </table>
+        <div class="chart-empty" id="chartPayMixEmpty" hidden>Tidak ada data.</div>
+      </div>
+
+      <div class="card">
+        <h3>Penggunaan Diskon</h3>
+        <table id="tableDisc">
+          <thead>
+            <tr><th>Diskon</th><th>Transaksi</th><th>Rasio</th></tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot>
+            <tr>
+              <th>Total</th>
+              <th id="discTxTotal">0</th>
+              <th id="discTxRate">0%</th>
+            </tr>
+          </tfoot>
+        </table>
+        <div class="chart-empty" id="chartDiscEmpty" hidden>Tidak ada data diskon &gt; 0%.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Penjualan per Jam</h3>
+      <div class="chart-box">
+        <canvas id="chartHour"></canvas>
+      </div>
+      <div class="chart-empty" id="chartHourEmpty" hidden>Tidak ada data.</div>
+    </div>
+  </section>
+
+  <!-- ITEMS -->
+  <section id="tab-items" class="tab-panel">
+    <div class="card">
+      <div class="card-head">
+        <h3>Ringkasan Kategori</h3>
+        <div class="muted">Klik kategori untuk detail.</div>
+      </div>
+      <table id="tableItemCategories" class="table-clickable">
+        <thead>
+          <tr>
+            <th>Kategori</th>
+            <th>Unit</th>
+            <th>Terjual</th>
+            <th>Void</th>
+            <th>Cancelled</th>
+            <th>Pendapatan</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card" id="itemDetailCard" hidden>
+      <div class="card-head">
+        <h3 id="itemDetailTitle">Detail Kategori</h3>
+        <button class="btn-ghost" id="itemDetailClear" type="button">Reset</button>
+      </div>
+      <div class="detail-grid">
+        <div>
+          <div class="card-subtitle">Subkategori</div>
+          <table id="tableItemSubcategories" class="table-clickable">
+            <thead>
+              <tr>
+                <th>Subkategori</th>
+                <th>Unit</th>
+                <th>Terjual</th>
+                <th>Void</th>
+                <th>Cancelled</th>
+                <th>Pendapatan</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div>
+          <div class="card-subtitle">Dishes</div>
+          <table id="tableItemDishes">
+            <thead>
+              <tr>
+                <th>Dish</th>
+                <th>Unit</th>
+                <th>Terjual</th>
+                <th>Rata/Hari</th>
+                <th>Void</th>
+                <th>Cancelled</th>
+                <th>Pendapatan</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div class="dish-pager" id="itemDishesPager" hidden>
+            <button class="mini-btn" type="button" data-dir="prev">Prev</button>
+            <span class="pager-hud" id="itemDishesHud">1/1</span>
+            <button class="mini-btn" type="button" data-dir="next">Next</button>
+          </div>
+        </div>
+      </div>
+      <div class="muted" style="margin-top:6px;">Klik subkategori untuk lihat dish.</div>
+    </div>
+
+    <div class="card" id="modifierUsageCard">
+      <div class="card-head">
+        <h3>Modifier Paling Sering</h3>
+        <div class="muted">Net qty = qty - void. Custom = bukan preset.</div>
+      </div>
+      <div class="grid-2">
+        <div>
+          <div class="card-subtitle">Preset</div>
+          <table id="tableModifiersPreset">
+            <thead>
+              <tr>
+                <th>Modifier</th>
+                <th>Qty</th>
+                <th>Lines</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <details id="modifiersUnusedWrap" style="margin-top:6px;" hidden>
+            <summary id="modifiersUnusedSummary" class="muted">Preset tidak terpakai</summary>
+            <div id="modifiersUnused" class="muted" style="margin-top:6px;"></div>
+          </details>
+        </div>
+        <div>
+          <div class="card-subtitle">Custom</div>
+          <table id="tableModifiersCustom">
+            <thead>
+              <tr>
+                <th>Modifier</th>
+                <th>Qty</th>
+                <th>Lines</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Pendapatan per Service Type</h3>
+      <table id="tableServiceMix">
+        <thead><tr><th>Service</th><th>Pendapatan</th><th>Lines</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    
+  </section>
+
+  <!-- QR -->
+  <section id="tab-qr" class="tab-panel">
+    <div class="kpi-grid">
+      <div class="kpi highlight"><div class="kpi-title">Gross QR</div><div id="kpiQrGross" class="kpi-val">Rp 0</div></div>
+      <div class="kpi"><div class="kpi-title">Orders (Lines)</div><div id="kpiQrLines" class="kpi-val">0</div></div>
+      <div class="kpi"><div class="kpi-title">Qty</div><div id="kpiQrQty" class="kpi-val">0</div></div>
+      <div class="kpi"><div class="kpi-title">Sessions</div><div id="kpiQrSessions" class="kpi-val">0</div></div>
+      <div class="kpi"><div class="kpi-title">Tables</div><div id="kpiQrTables" class="kpi-val">0</div></div>
+      <div class="kpi"><div class="kpi-title">AOV / Sesi</div><div id="kpiQrAov" class="kpi-val">Rp 0</div></div>
+      <div class="kpi"><div class="kpi-title">Outstanding (New/Edited)</div><div id="kpiQrOutstanding" class="kpi-val">Rp 0</div><div id="kpiQrOutstandingQty" class="subtle">0 qty</div></div>
+      <div class="kpi"><div class="kpi-title">Share of Revenue</div><div id="kpiQrShare" class="kpi-val">0%</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Status QR Orders</h3>
+        <table id="tableQrStatuses">
+          <thead><tr><th>Status</th><th>Lines</th><th>Qty</th><th>Gross</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Top Meja QR</h3>
+        <table id="tableQrTables">
+          <thead><tr><th>Meja</th><th>Sesi</th><th>Lines</th><th>Qty</th><th>Gross</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Jam Pesan (Gross)</h3>
+      <div class="chart-box">
+        <canvas id="chartQrHour"></canvas>
+      </div>
+      <div class="chart-empty" id="chartQrHourEmpty" hidden>Tidak ada data.</div>
+    </div>
+
+    <div class="card">
+      <h3>Antrean QR (qr.qr_orders)</h3>
+      <table id="tableQrQueue">
+        <thead><tr><th>Status</th><th>Jumlah</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="muted" style="margin-top:6px;">Hanya diisi bila schema <code>qr.qr_orders</code> digunakan.</div>
+    </div>
+  </section>
+
+  <!-- OPS -->
+  <section id="tab-ops" class="tab-panel">
+    <div class="grid-2">
+      <div class="card">
+        <h3>Rata-rata Durasi per Meja (menit)</h3>
+        <table id="tableTurns">
+          <thead><tr><th>Meja</th><th>Sessions</th><th>Avg (menit)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Sesi dengan Split Bill</h3>
+        <div id="splitCount" class="big-number">0</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESERVATIONS -->
+  <section id="tab-reservations" class="tab-panel">
+    <div class="grid-2">
+      <div class="card">
+        <h3>Status Reservasi</h3>
+        <table id="tableRes">
+          <thead><tr><th>Status</th><th>Jumlah</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>No-Show</h3>
+        <div id="noShow" class="big-number">0</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STAFF -->
+  <section id="tab-staff" class="tab-panel">
+    <div class="card">
+      <div class="card-head">
+        <h3>Void &amp; Cancel Audit</h3>
+        <label class="check">
+          <input type="checkbox" id="staffVoidExcludeSeafood">
+          Exclude Ikan &amp; Kepiting
+        </label>
+      </div>
+      <table id="tableStaffVoids" class="table-clickable">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Void Qty</th>
+            <th>Void Value</th>
+            <th>Cancel Qty</th>
+            <th>Cancel Value</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card" id="staffVoidDetailCard" hidden>
+      <div class="card-head">
+        <h3 id="staffVoidDetailTitle">Detail Void</h3>
+        <button class="btn-ghost" id="staffVoidDetailClear" type="button">Reset</button>
+      </div>
+      <table id="tableStaffVoidItems">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Void Qty</th>
+            <th>Void Value</th>
+            <th>Cancel Qty</th>
+            <th>Cancel Value</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Kasir</h3>
+        <table id="tableCashiers">
+          <thead><tr><th>Nama</th><th>Transaksi</th><th>Gross</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Waiter</h3>
+        <table id="tableWaiters">
+          <thead><tr><th>Nama</th><th>Item Dibuat</th><th>Nilai</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/analytics.js', v=ASSET_VER) }}"></script>
+{% endblock %}

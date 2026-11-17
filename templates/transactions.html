@@ -1,0 +1,215 @@
+{% extends "admin_base.html" %}
+{% block title %}Transaksi{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/transactions.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/kbs.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/numpad.css') }}">
+<style>
+  .wrap { max-width: 1280px; margin: 18px auto; padding: 0 12px; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom: 12px; }
+  .toolbar .chips { display:flex; gap:6px; }
+  .chip { border:1px solid #e5e7eb; background:#f8fafc; padding:6px 10px; border-radius:999px; cursor:pointer; }
+  .chip.active { background:#2563eb; color:#fff; border-color:#2563eb; }
+  .tx-table { width:100%; border-collapse:collapse; }
+  .tx-table th, .tx-table td { border-bottom:1px solid #eef2f7; padding:8px 10px; text-align:left; }
+  .tx-table th { background:#f8fafc; position:sticky; top:0; z-index:1; }
+  .tx-table th.sortable { cursor:pointer; user-select:none; }
+  .tx-table th.sortable .arrow { opacity:.45; margin-left:4px; font-size:11px; }
+  tr.refund td { color:#0f172a; background:#fff7f7; }
+  td.neg { color:#b91c1c; font-weight:600; }
+  .actions { white-space:nowrap; }
+  .actions-split { display:inline-flex; position:relative; }
+  .actions-split .btn { padding:6px 10px; border:1px solid #d1d5db; background:#fff; border-radius:6px; }
+  .actions-split .menu { position:absolute; right:0; top:110%; background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:6px; display:none; min-width:160px; box-shadow:0 10px 24px rgba(0,0,0,.12); }
+  .actions-split .menu.show { display:block; }
+  .menu-item { display:block; width:100%; text-align:left; background:#fff; border:0; padding:8px 10px; border-radius:6px; }
+  .menu-item:hover { background:#f3f4f6; }
+  .menu-item.danger { color:#b91c1c; }
+  .hidden { display:none !important; }
+  .muted { color:#667085; font-size:12px; }
+  /* Kill any leftover inline dropdowns */
+  .actions-split .menu,
+  .actions-split .aksi-menu { display: none !important; }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <h2>Riwayat Transaksi</h2>
+
+  <div class="toolbar">
+    <label>Nama</label>
+    <input type="text" id="tx_name" data-kbd="true" placeholder="Guest / Item / Meja" style="min-width:200px;">
+
+    <label>Dari</label><input type="date" id="tx_from">
+    <label>Sampai</label><input type="date" id="tx_to">
+
+    <div class="chips" id="tx_ranges">
+      <button class="chip" data-range="today">Hari ini</button>
+      <button class="chip" data-range="yesterday">Kemarin</button>
+      <button class="chip" data-range="7d">7 hari</button>
+      <button class="chip" data-range="mtd">Bulan ini</button>
+      <button class="chip" data-range="30d">30 hari</button>
+    </div>
+
+    <label>Metode</label>
+    <select id="tx_method">
+      <option value="">Semua</option>
+      <option value="cash">Cash</option>
+      <option value="debit">Debit</option>
+      <option value="card">Credit Card</option>
+      <option value="qris">QRIS</option>
+      <option value="backfill">Backfill</option>
+    </select>
+
+    <label>Kasir (ID)</label><input type="number" id="tx_cashier" placeholder="opsional" style="width:100px">
+    <label>Receipt ID</label><input type="number" id="tx_id" placeholder="ID pembayaran" style="width:120px">
+    <label class="chk"><input type="checkbox" id="tx_show_refunds"> Tampilkan baris refund</label>
+    <label class="chk"><input type="checkbox" id="tx_show_dp"> Tampilkan DP</label>
+    <button class="action-button" id="tx_apply" type="button">Terapkan</button>
+    <button class="action-button" id="tx_backfill" type="button">Backfill</button>
+  </div>
+
+  <div class="card">
+    <table class="tx-table">
+      <thead>
+        <tr>
+          <th class="sortable" data-sort="time">Tanggal <span class="arrow">⇵</span></th>
+          <th class="sortable" data-sort="id">Receipt <span class="arrow">⇵</span></th>
+          <th>Meja</th>
+          <th>Nama</th> 
+          <th class="sortable" data-sort="method">Metode <span class="arrow">⇵</span></th>
+          <th class="sortable" data-sort="amount">Amount <span class="arrow">⇵</span></th>
+          <th>DP</th>
+          <th>Refunded</th>
+          <th>Sisa Bisa Refund</th>
+          <th>Kasir</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>      
+      <tbody id="tx_body"></tbody>
+    </table>
+    <div class="muted" id="tx_hint" style="margin-top:6px;">Maks 500 baris. Klik header untuk urut (termasuk “Jam”).</div>
+  </div>
+</div>
+
+<!-- Row actions (split button) -->
+<template id="tx-actions-tpl">
+  <div class="actions-split" role="group">
+    <button type="button" class="btn btn-aksi">Aksi ▾</button>
+    <div class="aksi-menu" role="menu">
+      <button type="button" class="aksi-item btn-open"    role="menuitem">Buka</button>
+      <button type="button" class="aksi-item btn-print"   role="menuitem">Cetak Ulang</button>
+      <button type="button" class="aksi-item btn-refund"  role="menuitem">Refund</button>
+      <button type="button" class="aksi-item btn-reopen danger" role="menuitem">Buka Ulang</button>
+    </div>
+  </div>
+</template>
+
+<!-- Refund Modal -->
+<div id="refund-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-card" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>Refund</h3>
+      <button class="modal-close" onclick="closeRefundModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="refund-payment-id">
+      <div class="controls">
+        <label>Jumlah Refund (Rp)</label>
+        <input type="number" id="refund-amount" min="1" style="width:100%">
+      </div>
+      <div class="controls">
+        <label>Alasan</label>
+        <input type="text" id="refund-reason" placeholder="opsional" style="width:100%">
+      </div>
+      <div id="refund-error" class="err"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="action-button" onclick="submitRefund()">Proses</button>
+    </div>
+  </div>
+</div>
+
+<!-- Backfill Modal -->
+<div id="backfill-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-card" style="max-width:420px;">
+    <div class="modal-header">
+      <h3>Backfill Transaksi</h3>
+      <button class="modal-close" onclick="closeBackfillModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="controls">
+        <label>Tanggal</label>
+        <input type="date" id="backfill-date">
+      </div>
+      <div class="controls">
+        <label>Waktu (opsional)</label>
+        <input type="time" id="backfill-time">
+      </div>
+      <div class="controls">
+        <label>Jumlah (Rp)</label>
+        <input type="number" id="backfill-amount" min="1" inputmode="numeric" style="width:100%">
+      </div>
+      <div class="muted">Backfill hanya menambah pendapatan/kas; penjualan item tidak ikut bertambah.</div>
+      <div id="backfill-error" class="err"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="action-button" onclick="submitBackfill()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reopen Modal (fallback) -->
+<div id="reopen-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-card" style="max-width:520px;">
+    <div class="modal-header">
+      <h3>Buka Ulang Sesi</h3>
+      <button type="button" class="modal-close" onclick="closeReopen()">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="reopen-title" class="muted" style="margin-bottom:8px;"></p>
+
+      <label>Alasan</label>
+      <input id="reopen-reason" type="text" placeholder="Salah tutup" />
+
+      <label style="margin-top:8px;">Catatan refund (opsional)</label>
+      <input id="reopen-note" type="text" placeholder="Akan tampil di ledger pembayaran jika ada" />
+
+      <div id="reopen-err" style="color:#b91c1c;margin-top:8px;"></div>
+
+      <div class="modal-actions" style="display:flex; gap:8px; margin-top:12px;">
+        <button type="button" class="btn btn-primary" onclick="confirmReopen()">Simpan</button>
+        <button type="button" class="btn btn-gray" onclick="closeReopen()">Batal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Global AKSI modal -->
+<div id="aksi-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-card" style="max-width:360px;">
+    <div class="modal-header">
+      <h3>Aksi</h3>
+      <button type="button" class="modal-close" onclick="closeAksi()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="aksi-list">
+        <button type="button" class="aksi-item" id="aksi-open">Buka</button>
+        <button type="button" class="aksi-item" id="aksi-print">Cetak Ulang</button>
+        <button type="button" class="aksi-item" id="aksi-refund">Refund</button>
+        <button type="button" class="aksi-item danger" id="aksi-reopen">Buka Ulang</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.SESSION_OPEN_URL = '/table/<table_number>/<session_id>';
+</script>
+<script src="{{ url_for('static', filename='js/transactions.js') }}?v={{ ASSET_VER }}"></script>
+<script src="{{ url_for('static', filename='js/numpad.js') }}"></script>
+<script src="{{ url_for('static', filename='js/kbd.js') }}"></script>
+{% endblock %}

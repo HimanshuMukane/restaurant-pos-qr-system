@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <title>Masuk</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Base look to match Start Session -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+
+    <!-- On-screen keyboard -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/kbd.css') }}">
+    <script defer src="{{ url_for('static', filename='js/kbd.js') }}"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/numpad.css') }}">
+    <script defer src="{{ url_for('static', filename='js/numpad.js') }}"></script>
+
+    <style>
+      .buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .buttons .btn-exit {
+        background: #dc2626;      /* red */
+        border-color: #dc2626;
+      }
+
+      .buttons .btn-exit:hover {
+        background: #b91c1c;
+        border-color: #b91c1c;
+      }
+    </style>
+  </head>
+  <body class="page-login{% if demo_mode %} page-login-demo{% endif %}">
+    <div class="container{% if demo_mode %} container--demo{% endif %}">
+      <div class="login-main">
+        <h2>Masuk</h2>
+
+        <form method="POST" class="form-card" novalidate>
+          {% if csrf_token is defined %}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% endif %}
+
+          <label for="username">Username</label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            placeholder="username"
+            autocapitalize="none"
+            spellcheck="false"
+            autofocus
+            data-kbd="true">
+
+          <label for="password">Kata Sandi</label>
+          <div class="password-wrap">
+            <input
+              type="password"
+              id="password"
+              name="password"
+              placeholder="••••••••"
+              autocomplete="current-password"
+              data-numpad="true"
+              inputmode="numeric"
+              pattern="[0-9]*">
+            <button class="toggle" type="button" aria-label="Tampilkan / Sembunyikan"
+              onclick="(function(btn){
+                const inp = document.getElementById('password');
+                const isPwd = inp.type === 'password';
+                inp.type = isPwd ? 'text' : 'password';
+                btn.textContent = isPwd ? 'Sembunyikan' : 'Tampilkan';
+              })(this)">Tampilkan</button>
+          </div>
+
+          <div class="buttons">
+            <button type="submit">Masuk</button>
+            <!-- NEW: Keluar button -->
+            <button type="button" class="btn-exit" onclick="closeApp()">Tutup</button>
+          </div>
+        </form>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-list">
+              {% for cat,msg in messages %}
+                <div class="flash {{ cat|lower }}">{{ msg }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+      </div>
+
+      {% if demo_mode and demo_users %}
+        <aside class="demo-login-card" aria-label="Staff access sheet">
+          <div class="demo-login-eyebrow">Shift Access Sheet</div>
+          <h3>Login Info</h3>
+
+          {% for group in demo_users %}
+            <section class="demo-login-group">
+              <h4>{{ group.label }}</h4>
+              {% for entry in group.entries %}
+                <div class="demo-login-entry" data-u="{{ entry.username }}" data-p="{{ entry.password }}" onclick="fillLogin(this)">
+                  <span class="demo-login-user">{{ entry.username }}</span>
+                  <span class="demo-login-pass">{{ entry.password }}</span>
+                </div>
+              {% endfor %}
+            </section>
+          {% endfor %}
+
+          <div class="demo-login-note">
+            Ketuk baris untuk mengisi form otomatis.
+          </div>
+        </aside>
+      {% endif %}
+    </div>
+
+    <script>
+      // Keep default Enter-to-submit and smart focus
+      document.addEventListener('DOMContentLoaded', () => {
+        const u = document.getElementById('username');
+        const p = document.getElementById('password');
+        if ((u.value||'').length === 0) u.focus(); else p.focus();
+      });
+
+      function fillLogin(el) {
+        document.getElementById('username').value = el.dataset.u || '';
+        document.getElementById('password').value = el.dataset.p || '';
+        document.getElementById('username').focus();
+      }
+    </script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const root = document.documentElement;  // <html>
+        const pwd  = document.getElementById('password');
+        if (!pwd) return;
+
+        const setSecure = on => root.classList.toggle('numpad-secure', !!on);
+
+        // Enter secure mode when password is focused; leave on blur
+        pwd.addEventListener('focus', () => setSecure(true));
+        pwd.addEventListener('blur',  () => setSecure(false));
+
+        // Safety: if the numpad mounts after focus, keep secure on
+        const mo = new MutationObserver(() => {
+          if (document.activeElement === pwd) setSecure(true);
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+      });
+    </script>
+
+    <script>
+      function closeApp() {
+        fetch('/_shutdown_browser', {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        }).catch(() => {
+          // ignore errors – browser should die if pkill works
+        });
+      }
+    </script>
+
+
+  </body>
+</html>

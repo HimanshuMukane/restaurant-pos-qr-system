@@ -1,0 +1,113 @@
+{
+  "Mains": {
+    "Grilled Chicken": {
+      "price": 45000,
+      "dishes": [
+        {"name": "Grilled Chicken - Original",     "available": true},
+        {"name": "Grilled Chicken - BBQ",           "available": true},
+        {"name": "Grilled Chicken - Spicy",         "available": true}
+      ]
+    },
+    "Beef Steak": {
+      "price": 85000,
+      "dishes": [
+        {"name": "Beef Steak - Medium",             "available": true},
+        {"name": "Beef Steak - Well Done",          "available": true},
+        {"name": "Beef Steak - Black Pepper Sauce", "available": true}
+      ]
+    },
+    "Pasta": {
+      "price": 38000,
+      "dishes": [
+        {"name": "Spaghetti Bolognese",             "available": true},
+        {"name": "Spaghetti Aglio e Olio",          "available": true},
+        {"name": "Fettuccine Carbonara",            "available": true},
+        {"name": "Penne Arrabbiata",                "available": true}
+      ]
+    }
+  },
+  "Seafood": {
+    "Grilled Fish": {
+      "price_per_kg": 120000,
+      "portion_info": "300–500 g",
+      "unit": "gram",
+      "dishes": [
+        {"name": "Grilled Fish - Herb Butter",      "available": true},
+        {"name": "Grilled Fish - Lemon Garlic",     "available": true},
+        {"name": "Grilled Fish - Spicy",            "available": true}
+      ]
+    },
+    "Prawn": {
+      "price_per_kg": 150000,
+      "portion_info": "200–300 g",
+      "unit": "gram",
+      "dishes": [
+        {"name": "Prawn - Butter Garlic",           "available": true},
+        {"name": "Prawn - Chili Sauce",             "available": true},
+        {"name": "Prawn - Steamed",                 "available": true}
+      ]
+    },
+    "Squid": {
+      "price_per_kg": 90000,
+      "portion_info": "200–350 g",
+      "unit": "gram",
+      "dishes": [
+        {"name": "Squid - Grilled",                 "available": true},
+        {"name": "Squid - Fried",                   "available": true},
+        {"name": "Squid - Black Pepper",            "available": true}
+      ]
+    }
+  },
+  "Sides": {
+    "Rice": {
+      "price": 8000,
+      "dishes": [
+        {"name": "Steamed Rice",                    "available": true},
+        {"name": "Fried Rice",                      "available": true, "price_override": 18000}
+      ]
+    },
+    "Vegetables": {
+      "price": 22000,
+      "dishes": [
+        {"name": "Stir-Fried Greens",               "available": true},
+        {"name": "Sautéed Mushroom",                "available": true},
+        {"name": "Mixed Salad",                     "available": true, "price_override": 25000}
+      ]
+    }
+  },
+  "Drinks": {
+    "Soft Drinks": {
+      "price": 15000,
+      "dishes": [
+        {"name": "Cola",                            "available": true},
+        {"name": "Lemon Soda",                      "available": true},
+        {"name": "Orange Juice",                    "available": true}
+      ]
+    },
+    "Hot Drinks": {
+      "price": 18000,
+      "dishes": [
+        {"name": "Coffee",                          "available": true},
+        {"name": "Tea",                             "available": true},
+        {"name": "Hot Chocolate",                   "available": true, "price_override": 22000}
+      ]
+    },
+    "Water": {
+      "price": 8000,
+      "dishes": [
+        {"name": "Still Water",                     "available": true},
+        {"name": "Sparkling Water",                 "available": true, "price_override": 12000}
+      ]
+    }
+  },
+  "Desserts": {
+    "Sweets": {
+      "price": 28000,
+      "dishes": [
+        {"name": "Chocolate Lava Cake",             "available": true},
+        {"name": "Ice Cream Sundae",                "available": true},
+        {"name": "Fruit Sorbet",                    "available": true, "price_override": 22000}
+      ]
+    }
+  }
+}

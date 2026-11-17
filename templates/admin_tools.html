@@ -1,0 +1,1099 @@
+{% extends "admin_base.html" %} {% set active_tab = 'admin' %} {% block title
+%}Admin Tools{% endblock %} {% block heading %}Admin Tools{% endblock %} {%
+block content %}
+<div
+  class="card"
+  style="
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  "
+>
+  <h3 style="margin: 0 0 8px">Cancelled Tables</h3>
+  <p class="muted" style="margin: 0 0 10px">
+    Lihat daftar meja yang dibatalkan dalam rentang waktu tertentu dan estimasi nilainya.
+  </p>
+  <a class="action-button" href="{{ url_for('admin.cancelled_page') }}">Buka Laporan Cancelled</a>
+</div>
+
+<div
+  class="card"
+  style="
+    border: 1px solid #fee2e2;
+    background: #fef2f2;
+    padding: 16px;
+    border-radius: 10px;
+  "
+>
+  <h3 style="margin: 0 0 8px; color: #b91c1c">TRUTH NUKE</h3>
+  <p style="margin: 0 0 10px">
+    Hapus <strong>SEMUA</strong> data pada skema <code>public</code> kecuali
+    tabel <code>users</code> dan <code>floor_layouts</code>. Tindakan ini
+    <strong>tidak bisa dibatalkan</strong>.
+  </p>
+
+  <label style="display: block; margin: 12px 0 6px"
+    >Ketik <code>DELETE ALL</code> untuk konfirmasi:</label
+  >
+  <input
+    id="confirm-text"
+    type="text"
+    style="width: 360px; max-width: 100%; padding: 8px"
+  />
+
+  <div id="nuke-result" class="muted" style="margin-top: 10px"></div>
+
+  <div style="margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap">
+    <button
+      id="btn-nuke"
+      class="action-button"
+      style="background: #dc2626; border-color: #dc2626"
+    >
+      Hapus Semua Data (kecuali users & floor_layouts)
+    </button>
+    <button id="btn-preview" class="btn btn-gray">
+      Preview tabel yang akan dibersihkan
+    </button>
+  </div>
+
+  <details id="preview-box" style="margin-top: 10px">
+    <summary>Daftar tabel yang akan dihapus</summary>
+    <pre id="preview-list" style="white-space: pre-wrap; margin: 8px 0 0"></pre>
+  </details>
+</div>
+
+<div
+  class="card"
+  style="
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  "
+>
+  <h3 style="margin: 0 0 8px">QR Mode</h3>
+  <p class="muted" style="margin: 0 0 10px">
+    Pilih apakah QR mengarah ke sesi tertentu atau tetap per meja.
+  </p>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+    <label for="qr-mode">Mode</label>
+    <select id="qr-mode" style="min-width: 220px">
+      <option value="session">Per Session (QR berubah tiap sesi)</option>
+      <option value="table">Per Table (QR tetap, pakai sesi aktif)</option>
+    </select>
+    <button id="btn-qr-save" class="action-button">Simpan</button>
+    <span id="qr-mode-status" class="muted">-</span>
+  </div>
+</div>
+
+<div
+  class="card"
+  style="
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  "
+>
+  <h3 style="margin: 0 0 8px">QR A4 Half (Admin Print)</h3>
+  <p class="muted" style="margin: 0 0 10px">
+    Cetak 1 QR per meja di setengah halaman A4 (A5 landscape). Cocok untuk cetak dua meja per kertas.
+  </p>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+    <label for="qr-a5-table">Table</label>
+    <input id="qr-a5-table" placeholder="12" style="width: 80px" />
+    <button id="btn-qr-a5-preview" class="action-button">Preview</button>
+    <button id="btn-qr-a5-print" class="action-button">Print</button>
+    <span id="qr-a5-status" class="muted">-</span>
+  </div>
+</div>
+
+<div
+  class="card"
+  style="
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  "
+>
+  <h3 style="margin: 0 0 8px">Printer Scan</h3>
+  <p class="muted" style="margin: 0 0 10px">
+    Scan subnet untuk port printer dan coba test print langsung.
+  </p>
+  <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center">
+    <label>Subnet</label>
+    <input id="scan-subnet" type="text" placeholder="10.0.0.0/24" style="min-width: 180px" />
+    <label>Ports</label>
+    <input id="scan-ports" type="text" placeholder="9100,9101,9102,9103,9104,9105,515,631" style="min-width: 320px" />
+    <label>Timeout (s)</label>
+    <input id="scan-timeout" type="number" step="0.1" min="0.1" max="5" value="0.6" style="width: 90px" />
+    <button id="btn-scan-printers" class="action-button">Scan</button>
+    <span id="scan-status" class="muted">-</span>
+  </div>
+  <div style="margin-top: 12px; overflow: auto">
+    <table id="scan-table" style="width: 100%; border-collapse: collapse; min-width: 640px">
+      <thead>
+        <tr style="text-align: left; background: #f9fafb">
+          <th style="padding: 8px">IP</th>
+          <th style="padding: 8px">Port</th>
+          <th style="padding: 8px">Protocol</th>
+          <th style="padding: 8px">Name/ID</th>
+          <th style="padding: 8px">Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="scan-body">
+        <tr>
+          <td colspan="5" style="padding: 8px" class="muted">Belum scan.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div
+  class="card"
+  style="
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  "
+>
+  <h3 style="margin: 0 0 8px">Config</h3>
+  <p class="muted" style="margin: 0 0 10px">
+    Atur pajak, service, nama resto, biaya takeaway, dan ukuran kertas printer.
+  </p>
+
+  <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end">
+    <div>
+      <label>Service (%)</label><br />
+      <input id="cfg-service-percent" type="number" min="0" max="100" step="1" style="width: 120px" />
+    </div>
+    <div>
+      <label>Pajak (%)</label><br />
+      <input id="cfg-tax-percent" type="number" min="0" max="100" step="1" style="width: 120px" />
+    </div>
+    <div>
+      <label>Tax on Service</label><br />
+      <label style="display: inline-flex; gap: 6px; align-items: center">
+        <input id="cfg-tax-on-service" type="checkbox" />
+        <span class="muted">Hitung pajak di atas service</span>
+      </label>
+    </div>
+    <div>
+      <label>Takeaway Fee (Rp)</label><br />
+      <input id="cfg-takeaway-fee" type="number" min="0" step="100" style="width: 140px" />
+    </div>
+    <div>
+      <label>Rounding Step (Rp)</label><br />
+      <input id="cfg-rounding-step" type="number" min="0" step="100" style="width: 140px" />
+    </div>
+    <div>
+      <label>Click Debounce (ms)</label><br />
+      <input id="cfg-click-debounce" type="number" min="0" max="1000" step="10" style="width: 140px" />
+      <div class="muted" style="font-size: 12px">Blokir klik ganda cepat.</div>
+    </div>
+  </div>
+
+  <div style="margin-top: 12px">
+    <label>Metode Pembayaran (popup)</label><br />
+    <div id="cfg-payment-methods" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center">
+      <label style="display: inline-flex; gap: 6px; align-items: center">
+        <input type="checkbox" value="cash" />
+        <span>Cash</span>
+      </label>
+      <label style="display: inline-flex; gap: 6px; align-items: center">
+        <input type="checkbox" value="debit" />
+        <span>Debit</span>
+      </label>
+      <label style="display: inline-flex; gap: 6px; align-items: center">
+        <input type="checkbox" value="mastercard" />
+        <span>Mastercard</span>
+      </label>
+      <label style="display: inline-flex; gap: 6px; align-items: center">
+        <input type="checkbox" value="visa" />
+        <span>Visa</span>
+      </label>
+    </div>
+  </div>
+
+  <div style="margin-top: 12px">
+    <label>Receipt Header (1 baris per line)</label><br />
+    <textarea id="cfg-receipt-header" rows="4" style="width: 100%; max-width: 640px"></textarea>
+  </div>
+
+  <div style="margin-top: 12px">
+    <label>Receipt Footer Note</label><br />
+    <input id="cfg-receipt-footer" type="text" style="width: 100%; max-width: 640px" />
+  </div>
+
+  <div style="margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap">
+    <div>
+      <label>Paper Width (mm)</label><br />
+      <input id="cfg-paper-width" type="number" min="40" max="120" step="1" style="width: 140px" />
+    </div>
+    <div>
+      <label>CUPS Media</label><br />
+      <input id="cfg-cups-media" type="text" placeholder="Custom.80x5000mm" style="width: 200px" />
+    </div>
+    <div>
+      <label>CUPS QR Media</label><br />
+      <input id="cfg-cups-qr-media" type="text" placeholder="Custom.80x80mm" style="width: 200px" />
+    </div>
+    <div>
+      <label>ESC/POS Cols</label><br />
+      <input id="cfg-escpos-cols" type="number" min="16" max="80" step="1" style="width: 120px" />
+    </div>
+    <div>
+      <label>ESC/POS Feed Lines</label><br />
+      <input id="cfg-escpos-feed" type="number" min="0" max="20" step="1" style="width: 120px" />
+    </div>
+    <div>
+      <label>ESC/POS Right Guard</label><br />
+      <input id="cfg-escpos-guard" type="number" min="0" max="8" step="1" style="width: 120px" />
+    </div>
+  </div>
+
+  <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center">
+    <button id="btn-config-save" class="action-button">Simpan Config</button>
+    <span id="config-status" class="muted">-</span>
+  </div>
+</div>
+
+<div
+  class="card"
+  style="
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  "
+>
+  <h3 style="margin: 0 0 8px">User Management</h3>
+  <p class="muted" style="margin: 0 0 10px">
+    Edit akun (username, nama, role, password). Hanya admin yang bisa akses.
+  </p>
+  <div style="overflow: auto">
+    <table id="users-table" style="width: 100%; border-collapse: collapse; min-width: 820px">
+      <thead>
+        <tr style="text-align: left; background: #f9fafb">
+          <th style="padding: 8px">ID</th>
+          <th style="padding: 8px">Username</th>
+          <th style="padding: 8px">Nama</th>
+          <th style="padding: 8px">Role</th>
+          <th style="padding: 8px">Aktif</th>
+          <th style="padding: 8px">Password Baru</th>
+          <th style="padding: 8px">Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="users-body">
+        <tr>
+          <td colspan="7" style="padding: 8px" class="muted">Memuat…</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center">
+    <button id="btn-users-reload" class="btn btn-gray">Reload</button>
+    <span id="users-status" class="muted">-</span>
+  </div>
+</div>
+
+<div
+  class="card"
+  style="
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  "
+>
+  <h3 style="margin: 0 0 8px">Bridge Print (advanced)</h3>
+  <p class="muted" style="margin: 0 0 10px">
+    Tes jalur bridge dengan data asli (tanpa mengubah flow produksi).
+  </p>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+    <label>Session ID</label>
+    <input id="bridge-session-id" placeholder="S24..." style="min-width: 220px" />
+    <label>Payment ID</label>
+    <input id="bridge-payment-id" type="number" placeholder="123" style="width: 100px" />
+    <label>Table</label>
+    <input id="bridge-table" placeholder="12" style="width: 80px" />
+  </div>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px">
+    <button id="btn-bridge-prebill" class="action-button">Pre-Bill</button>
+    <button id="btn-bridge-paid" class="action-button">Paid Receipt</button>
+    <button id="btn-bridge-checker" class="action-button">Checker</button>
+    <button id="btn-bridge-kitchen" class="action-button">Kitchen (new/edited)</button>
+    <button id="btn-bridge-void" class="action-button">Void</button>
+    <button id="btn-bridge-qr" class="action-button">QR Ticket</button>
+  </div>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center">
+    <label>Void Name</label>
+    <input id="bridge-void-name" placeholder="Nama item" style="min-width: 160px" />
+    <label>Qty</label>
+    <input id="bridge-void-qty" type="number" step="0.1" placeholder="1" style="width: 70px" />
+    <label>Note</label>
+    <input id="bridge-void-note" placeholder="Catatan" style="min-width: 160px" />
+  </div>
+  <div class="muted" id="bridge-print-status" style="margin-top: 8px">Belum jalan.</div>
+</div>
+
+<div
+  class="card"
+  style="
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  "
+>
+  <h3 style="margin: 0 0 8px">Open Sessions (Meja Aktif)</h3>
+  <p class="muted" style="margin: 0 0 10px">
+    Lihat semua sesi aktif dan buka halaman meja langsung.
+  </p>
+  <div style="overflow: auto">
+    <table style="width: 100%; border-collapse: collapse">
+      <thead>
+        <tr style="text-align: left; background: #f9fafb">
+          <th style="padding: 8px">Table</th>
+          <th style="padding: 8px">Guest</th>
+          <th style="padding: 8px">Pax</th>
+          <th style="padding: 8px">Opened</th>
+          <th style="padding: 8px">Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="open-sessions-body">
+        <tr>
+          <td colspan="5" style="padding: 8px" class="muted">Memuat…</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div
+  class="card"
+  style="
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  "
+>
+  <h3 style="margin: 0 0 8px">Bridge Print (percobaan)</h3>
+  <p class="muted" style="margin: 0 0 10px">
+    Kirim struk mini ke bridge lokal (localhost:5000). Ini hanya untuk tes
+    alur cetak tanpa dialog.
+  </p>
+  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+    <button id="btn-print-test" class="action-button">
+      Test Print (bridge)
+    </button>
+    <span id="print-test-status" class="muted">Belum jalan.</span>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  async function postJSON(url, data) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(data || {}),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.message || "HTTP " + r.status);
+    return j;
+  }
+
+  async function patchJSON(url, data) {
+    const r = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(data || {}),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.message || "HTTP " + r.status);
+    return j;
+  }
+
+  async function getJSON(url) {
+    const r = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.message || "HTTP " + r.status);
+    return j;
+  }
+
+  function _userCell() {
+    const td = document.createElement("td");
+    td.style.padding = "8px";
+    td.style.verticalAlign = "top";
+    return td;
+  }
+
+  function _userInput(type, value, placeholder) {
+    const input = document.createElement("input");
+    input.type = type || "text";
+    input.value = value || "";
+    if (placeholder) input.placeholder = placeholder;
+    input.style.width = "140px";
+    input.style.padding = "6px 8px";
+    return input;
+  }
+
+  function buildUserRow(u) {
+    const tr = document.createElement("tr");
+    tr.dataset.userId = String(u.id || "");
+
+    const idTd = _userCell();
+    idTd.textContent = u.id;
+    tr.appendChild(idTd);
+
+    const usernameTd = _userCell();
+    const usernameInput = _userInput("text", u.username || "", "username");
+    usernameInput.className = "user-username";
+    usernameTd.appendChild(usernameInput);
+    tr.appendChild(usernameTd);
+
+    const nameTd = _userCell();
+    const nameInput = _userInput("text", u.full_name || "", "nama");
+    nameInput.className = "user-full-name";
+    nameTd.appendChild(nameInput);
+    tr.appendChild(nameTd);
+
+    const roleTd = _userCell();
+    const roleSelect = document.createElement("select");
+    roleSelect.className = "user-role";
+    roleSelect.style.padding = "6px 8px";
+    ["admin", "cashier", "waiter", "viewer"].forEach((role) => {
+      const opt = document.createElement("option");
+      opt.value = role;
+      opt.textContent = role;
+      if (u.role === role) opt.selected = true;
+      roleSelect.appendChild(opt);
+    });
+    roleTd.appendChild(roleSelect);
+    tr.appendChild(roleTd);
+
+    const activeTd = _userCell();
+    const activeInput = document.createElement("input");
+    activeInput.type = "checkbox";
+    activeInput.className = "user-active";
+    activeInput.checked = !!u.is_active;
+    activeTd.appendChild(activeInput);
+    tr.appendChild(activeTd);
+
+    const passTd = _userCell();
+    const passInput = _userInput("password", "", "password baru");
+    passInput.className = "user-password";
+    passInput.autocomplete = "new-password";
+    passTd.appendChild(passInput);
+    tr.appendChild(passTd);
+
+    const actionTd = _userCell();
+    const saveBtn = document.createElement("button");
+    saveBtn.textContent = "Simpan";
+    saveBtn.className = "action-button";
+    saveBtn.style.padding = "6px 10px";
+    saveBtn.style.fontSize = "14px";
+    const statusEl = document.createElement("span");
+    statusEl.className = "muted user-status";
+    statusEl.style.marginLeft = "8px";
+    statusEl.textContent = "-";
+    saveBtn.addEventListener("click", () => saveUser(tr));
+    actionTd.appendChild(saveBtn);
+    actionTd.appendChild(statusEl);
+    tr.appendChild(actionTd);
+
+    return tr;
+  }
+
+  async function saveUser(tr) {
+    const id = tr.dataset.userId;
+    const username = tr.querySelector(".user-username")?.value?.trim().toLowerCase();
+    const fullName = tr.querySelector(".user-full-name")?.value?.trim() || "";
+    const role = tr.querySelector(".user-role")?.value;
+    const isActive = !!tr.querySelector(".user-active")?.checked;
+    const password = tr.querySelector(".user-password")?.value || "";
+    const statusEl = tr.querySelector(".user-status");
+
+    if (!id || !statusEl) return;
+    statusEl.textContent = "Menyimpan...";
+
+    const payload = {
+      username,
+      full_name: fullName,
+      role,
+      is_active: isActive,
+    };
+    if (password.trim()) {
+      payload.password = password;
+    }
+
+    try {
+      await patchJSON(`/admin/api/users/${encodeURIComponent(id)}`, payload);
+      statusEl.textContent = "Tersimpan";
+      const passInput = tr.querySelector(".user-password");
+      if (passInput) passInput.value = "";
+    } catch (e) {
+      statusEl.textContent = e.message || "Gagal";
+    }
+  }
+
+  async function loadUsers() {
+    const body = document.getElementById("users-body");
+    const status = document.getElementById("users-status");
+    if (!body || !status) return;
+    status.textContent = "Memuat...";
+    body.innerHTML =
+      '<tr><td colspan="7" style="padding:8px;" class="muted">Memuat…</td></tr>';
+    try {
+      const r = await fetch("/admin/api/users", {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.message || "HTTP " + r.status);
+      const rows = j.rows || [];
+      body.innerHTML = "";
+      if (!rows.length) {
+        body.innerHTML =
+          '<tr><td colspan="7" style="padding:8px;" class="muted">Tidak ada user.</td></tr>';
+        status.textContent = "0 user";
+        return;
+      }
+      rows.forEach((u) => body.appendChild(buildUserRow(u)));
+      status.textContent = `${rows.length} user`;
+    } catch (e) {
+      body.innerHTML = `<tr><td colspan="7" style="padding:8px;" class="muted">Gagal memuat user: ${
+        e.message || e
+      }</td></tr>`;
+      status.textContent = "Gagal";
+    }
+  }
+
+  document.getElementById("btn-nuke").addEventListener("click", async () => {
+    const c = document.getElementById("confirm-text").value.trim();
+    const box = document.getElementById("nuke-result");
+    box.textContent = "";
+    if (c !== "DELETE ALL") {
+      box.textContent = "Konfirmasi salah. Ketik persis: DELETE ALL";
+      return;
+    }
+
+    if (
+      !confirm(
+        "Anda yakin? Semua data (kecuali users & floor_layouts) akan dihapus."
+      )
+    )
+      return;
+
+    try {
+      const j = await postJSON("/admin/tools/nuke", { confirm: c });
+      box.textContent = `OK. ${j.truncated || 0} tabel dibersihkan.`;
+    } catch (e) {
+      box.textContent = e.message || "Gagal.";
+    }
+  });
+
+  document.getElementById("btn-preview").addEventListener("click", async () => {
+    const pre = document.getElementById("preview-list");
+    const box = document.getElementById("preview-box");
+    pre.textContent = "Memuat...";
+    try {
+      const r = await fetch("/admin/tools/preview", {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      const j = await r.json();
+      pre.textContent =
+        (j.tables || []).join("\n") || "(Tidak ada tabel yang akan dihapus)";
+      box.open = true;
+    } catch {
+      pre.textContent = "Gagal memuat daftar.";
+      box.open = true;
+    }
+  });
+
+  async function loadOpenSessions() {
+    const body = document.getElementById("open-sessions-body");
+    body.innerHTML =
+      '<tr><td colspan="5" style="padding:8px;" class="muted">Memuat…</td></tr>';
+    try {
+      const r = await fetch("/admin/tools/open_sessions", {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const j = await r.json();
+      const rows = j.rows || [];
+      body.innerHTML = "";
+      if (!rows.length) {
+        body.innerHTML =
+          '<tr><td colspan="5" style="padding:8px;" class="muted">Tidak ada sesi aktif.</td></tr>';
+        return;
+      }
+      rows.forEach((s) => {
+        const link = `/table/${encodeURIComponent(
+          s.table_number
+        )}/${encodeURIComponent(s.id)}?exact=1`;
+        const btn = document.createElement("a");
+        btn.href = link;
+        btn.textContent = "Buka";
+        btn.className = "action-button";
+        btn.style.padding = "6px 10px";
+        btn.style.fontSize = "14px";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+        <td style="padding:8px; font-weight:600;">${s.table_number || "-"}</td>
+        <td style="padding:8px;">${s.guest_name || "-"}</td>
+        <td style="padding:8px;">${s.pax || "-"}</td>
+        <td style="padding:8px;">${s.opened_at || "-"}</td>
+        <td style="padding:8px;"></td>
+      `;
+        tr.lastElementChild.appendChild(btn);
+        body.appendChild(tr);
+      });
+    } catch (e) {
+      body.innerHTML = `<tr><td colspan="5" style="padding:8px;" class="muted">Gagal memuat sesi: ${
+        e.message || e
+      }</td></tr>`;
+    }
+  }
+
+  async function loadQrSettings() {
+    const status = document.getElementById("qr-mode-status");
+    const modeEl = document.getElementById("qr-mode");
+    if (!modeEl) return;
+    status.textContent = "Memuat...";
+    try {
+      const r = await fetch("/admin/api/qr_settings", {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.message || "HTTP " + r.status);
+      modeEl.value = j.qr_session_mode || "session";
+      status.textContent = "OK";
+    } catch (e) {
+      status.textContent = e.message || "Gagal memuat";
+    }
+  }
+
+  function _splitLines(text) {
+    return String(text || "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+  }
+
+  function _numVal(el, fallback) {
+    const v = Number(el?.value);
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  function fillConfigForm(cfg) {
+    const billing = cfg?.billing || {};
+    const receipt = cfg?.receipt || {};
+    const printing = cfg?.printing || {};
+    const escpos = cfg?.escpos || {};
+    const ui = cfg?.ui || {};
+
+    document.getElementById("cfg-service-percent").value = billing.service_percent ?? 5;
+    document.getElementById("cfg-tax-percent").value = billing.tax_percent ?? 10;
+    document.getElementById("cfg-tax-on-service").checked = !!billing.tax_on_service;
+    document.getElementById("cfg-takeaway-fee").value = billing.takeaway_fee_idr ?? 10000;
+    document.getElementById("cfg-rounding-step").value = billing.rounding_step_idr ?? 100;
+    document.getElementById("cfg-click-debounce").value = ui.click_debounce_ms ?? 100;
+    const methodWrap = document.getElementById("cfg-payment-methods");
+    if (methodWrap) {
+      const rawMethods = Array.isArray(billing.payment_methods)
+        ? billing.payment_methods
+        : ["cash", "debit", "mastercard", "visa"];
+      const methods = new Set(rawMethods.map((m) => String(m || "").trim().toLowerCase()));
+      methodWrap.querySelectorAll("input[type='checkbox']").forEach((el) => {
+        const key = String(el.value || "").trim().toLowerCase();
+        el.checked = methods.has(key);
+      });
+    }
+
+    const headerLines = Array.isArray(receipt.header_lines) ? receipt.header_lines : [];
+    document.getElementById("cfg-receipt-header").value = headerLines.join("\n");
+    document.getElementById("cfg-receipt-footer").value = receipt.footer_note ?? "";
+
+    document.getElementById("cfg-paper-width").value = printing.paper_width_mm ?? 80;
+    document.getElementById("cfg-cups-media").value = printing.cups_media ?? "";
+    document.getElementById("cfg-cups-qr-media").value = printing.cups_qr_media ?? "";
+
+    document.getElementById("cfg-escpos-cols").value = escpos.receipt_cols ?? 48;
+    document.getElementById("cfg-escpos-feed").value = escpos.feed_lines ?? 6;
+    document.getElementById("cfg-escpos-guard").value = escpos.right_guard ?? 0;
+  }
+
+  async function loadConfig() {
+    const status = document.getElementById("config-status");
+    if (status) status.textContent = "Memuat...";
+    try {
+      const cfg = await getJSON("/admin/api/config");
+      fillConfigForm(cfg);
+      if (status) status.textContent = "OK";
+    } catch (e) {
+      if (status) status.textContent = e.message || "Gagal memuat";
+    }
+  }
+
+  async function saveConfig() {
+    const status = document.getElementById("config-status");
+    if (status) status.textContent = "Menyimpan...";
+
+    const methodWrap = document.getElementById("cfg-payment-methods");
+    let paymentMethods = [];
+    if (methodWrap) {
+      methodWrap.querySelectorAll("input[type='checkbox']").forEach((el) => {
+        if (el.checked) paymentMethods.push(String(el.value || "").trim().toLowerCase());
+      });
+    }
+    if (!paymentMethods.length) {
+      paymentMethods = ["cash", "debit", "mastercard", "visa"];
+    }
+
+    const payload = {
+      billing: {
+        service_percent: _numVal(document.getElementById("cfg-service-percent"), 5),
+        tax_percent: _numVal(document.getElementById("cfg-tax-percent"), 10),
+        tax_on_service: !!document.getElementById("cfg-tax-on-service")?.checked,
+        takeaway_fee_idr: _numVal(document.getElementById("cfg-takeaway-fee"), 10000),
+        rounding_step_idr: _numVal(document.getElementById("cfg-rounding-step"), 100),
+        payment_methods: paymentMethods,
+      },
+      receipt: {
+        header_lines: _splitLines(document.getElementById("cfg-receipt-header")?.value),
+        footer_note: (document.getElementById("cfg-receipt-footer")?.value || "").trim(),
+      },
+      printing: {
+        paper_width_mm: _numVal(document.getElementById("cfg-paper-width"), 80),
+        cups_media: (document.getElementById("cfg-cups-media")?.value || "").trim(),
+        cups_qr_media: (document.getElementById("cfg-cups-qr-media")?.value || "").trim(),
+      },
+      escpos: {
+        receipt_cols: _numVal(document.getElementById("cfg-escpos-cols"), 48),
+        checker_cols: _numVal(document.getElementById("cfg-escpos-cols"), 48),
+        feed_lines: _numVal(document.getElementById("cfg-escpos-feed"), 6),
+        right_guard: _numVal(document.getElementById("cfg-escpos-guard"), 0),
+      },
+      ui: {
+        click_debounce_ms: _numVal(document.getElementById("cfg-click-debounce"), 100),
+      },
+    };
+
+    try {
+      await postJSON("/admin/api/config", payload);
+      if (status) status.textContent = "Tersimpan";
+    } catch (e) {
+      if (status) status.textContent = e.message || "Gagal menyimpan";
+    }
+  }
+
+  function renderScanResults(rows) {
+    const body = document.getElementById("scan-body");
+    if (!body) return;
+    body.innerHTML = "";
+    if (!rows || !rows.length) {
+      body.innerHTML = '<tr><td colspan="5" style="padding:8px;" class="muted">Tidak ada printer terdeteksi.</td></tr>';
+      return;
+    }
+    rows.forEach((r) => {
+      const tr = document.createElement("tr");
+      const tdIp = document.createElement("td");
+      tdIp.style.padding = "8px";
+      tdIp.textContent = r.ip || "-";
+      const tdPort = document.createElement("td");
+      tdPort.style.padding = "8px";
+      tdPort.textContent = r.port || "-";
+      const tdProto = document.createElement("td");
+      tdProto.style.padding = "8px";
+      tdProto.textContent = r.protocol || "-";
+      const tdName = document.createElement("td");
+      tdName.style.padding = "8px";
+      tdName.textContent = r.name || r.id || "-";
+      const tdAct = document.createElement("td");
+      tdAct.style.padding = "8px";
+      const btn = document.createElement("button");
+      btn.className = "action-button";
+      btn.textContent = "Test Print";
+      btn.style.padding = "6px 10px";
+      btn.style.fontSize = "14px";
+      const status = document.createElement("span");
+      status.className = "muted";
+      status.style.marginLeft = "8px";
+      status.textContent = "-";
+      btn.addEventListener("click", async () => {
+        status.textContent = "Printing...";
+        try {
+          await postJSON("/api/printers/scan/test", {
+            ip: r.ip,
+            port: r.port,
+            name: r.name,
+            id: r.id,
+          });
+          status.textContent = "OK";
+        } catch (e) {
+          status.textContent = e.message || "Gagal";
+        }
+      });
+      tdAct.appendChild(btn);
+      tdAct.appendChild(status);
+      tr.appendChild(tdIp);
+      tr.appendChild(tdPort);
+      tr.appendChild(tdProto);
+      tr.appendChild(tdName);
+      tr.appendChild(tdAct);
+      body.appendChild(tr);
+    });
+  }
+
+  async function scanPrinters() {
+    const status = document.getElementById("scan-status");
+    const subnetEl = document.getElementById("scan-subnet");
+    const portsEl = document.getElementById("scan-ports");
+    const timeoutEl = document.getElementById("scan-timeout");
+    if (!status) return;
+    status.textContent = "Scanning...";
+    const subnet = (subnetEl?.value || "").trim() || "10.0.0.0/24";
+    const ports = (portsEl?.value || "").trim();
+    const timeout = (timeoutEl?.value || "").trim();
+    const qs = new URLSearchParams();
+    qs.set("subnet", subnet);
+    if (ports) qs.set("ports", ports);
+    if (timeout) qs.set("timeout", timeout);
+    try {
+      const res = await getJSON(`/api/printers/scan?${qs.toString()}`);
+      renderScanResults(res.results || []);
+      status.textContent = `Selesai (${(res.results || []).length})`;
+    } catch (e) {
+      status.textContent = e.message || "Scan gagal";
+    }
+  }
+
+  document.getElementById("btn-qr-save")?.addEventListener("click", async () => {
+    const status = document.getElementById("qr-mode-status");
+    const modeEl = document.getElementById("qr-mode");
+    if (!modeEl) return;
+    status.textContent = "Menyimpan...";
+    try {
+      const j = await postJSON("/admin/api/qr_settings", {
+        qr_session_mode: modeEl.value,
+      });
+      status.textContent = j.qr_session_mode ? "Tersimpan" : "OK";
+    } catch (e) {
+      status.textContent = e.message || "Gagal menyimpan";
+    }
+  });
+
+  function openQrA5(autoprint) {
+    const table = (document.getElementById("qr-a5-table")?.value || "").trim();
+    const status = document.getElementById("qr-a5-status");
+    if (!table) {
+      if (status) status.textContent = "Table required.";
+      return;
+    }
+    if (window.POS_DEMO_MODE === true) {
+      window.POS?.showDemoPrintModal?.({
+        title: "QR sheet simulated",
+        message: "Admin QR sheet output is simulated in the demo branch.",
+        actions: ["Printed locally"],
+      });
+      if (status) status.textContent = "Demo mode: QR sheet simulated.";
+      return;
+    }
+    const qs = new URLSearchParams({ table });
+    if (autoprint) qs.set("autoprint", "1");
+    const url = `/admin/tools/qr_a5?${qs.toString()}`;
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (!win) {
+      if (status) status.textContent = "Popup diblokir. Izinkan pop-up.";
+      return;
+    }
+    if (status) status.textContent = autoprint ? "Membuka print..." : "Preview dibuka.";
+    try { win.focus(); } catch (_) {}
+  }
+
+  document.getElementById("btn-qr-a5-preview")?.addEventListener("click", () => openQrA5(false));
+  document.getElementById("btn-qr-a5-print")?.addEventListener("click", () => openQrA5(true));
+
+  document.addEventListener("DOMContentLoaded", () => {
+    loadOpenSessions();
+    loadQrSettings();
+    loadConfig();
+    loadUsers();
+    document.getElementById("btn-users-reload")?.addEventListener("click", loadUsers);
+    document.getElementById("btn-config-save")?.addEventListener("click", saveConfig);
+    document.getElementById("btn-scan-printers")?.addEventListener("click", scanPrinters);
+    const subnetEl = document.getElementById("scan-subnet");
+    if (subnetEl && !subnetEl.value) subnetEl.value = "10.0.0.0/24";
+  });
+
+  // ---- bridge print helpers ----
+  (function () {
+    const bridgeUrl = window.POS_BRIDGE_URL || "http://127.0.0.1:5000/print-raw";
+
+    async function fetchHex(url) {
+      const r = await fetch(url, {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.message || "HTTP " + r.status);
+      if (!j.hex) throw new Error("No hex payload from server");
+      return j.hex;
+    }
+
+    async function sendHexToBridge(hex) {
+      const r = await fetch(bridgeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: hex }),
+      });
+      if (!r.ok) {
+        let detail = "";
+        try {
+          detail = await r.text();
+        } catch (_) {}
+        throw new Error(detail || "Bridge HTTP " + r.status);
+      }
+    }
+
+    async function runBridgePrint(statusEl, url) {
+      if (window.POS_DEMO_MODE === true) {
+        window.POS?.showDemoPrintModal?.({
+          title: "Admin print simulated",
+          message: "Bridge and admin print tools are disabled in the public demo build.",
+          actions: ["Printed locally"],
+        });
+        statusEl.textContent = "Demo mode: print simulated.";
+        return;
+      }
+      statusEl.textContent = "Mengambil hex…";
+      const hex = await fetchHex(url);
+      statusEl.textContent = "Mengirim ke bridge…";
+      await sendHexToBridge(hex);
+      statusEl.textContent = "Terkirim. Cek printer.";
+    }
+
+    // Simple test button (static sample)
+    const testBtn = document.getElementById("btn-print-test");
+    const testStatus = document.getElementById("print-test-status");
+    testBtn?.addEventListener("click", async () => {
+      try {
+        await runBridgePrint(testStatus, "/admin/tools/print_test_hex");
+      } catch (e) {
+        testStatus.textContent = `Gagal: ${e.message || e}`;
+      }
+    });
+
+    // Advanced buttons (real data)
+    const statusEl = document.getElementById("bridge-print-status");
+    const sidEl = document.getElementById("bridge-session-id");
+    const payEl = document.getElementById("bridge-payment-id");
+    const tableEl = document.getElementById("bridge-table");
+    const voidNameEl = document.getElementById("bridge-void-name");
+    const voidQtyEl = document.getElementById("bridge-void-qty");
+    const voidNoteEl = document.getElementById("bridge-void-note");
+
+    function getSessionId() {
+      return (sidEl?.value || "").trim();
+    }
+
+    function getPaymentId() {
+      return (payEl?.value || "").trim();
+    }
+
+    function getTable() {
+      return (tableEl?.value || "").trim();
+    }
+
+    document.getElementById("btn-bridge-prebill")?.addEventListener("click", async () => {
+      const sid = getSessionId();
+      if (!sid) return (statusEl.textContent = "Session ID required.");
+      try {
+        await runBridgePrint(statusEl, `/api/print/get-hex/${encodeURIComponent(sid)}`);
+      } catch (e) {
+        statusEl.textContent = `Gagal: ${e.message || e}`;
+      }
+    });
+
+    document.getElementById("btn-bridge-paid")?.addEventListener("click", async () => {
+      const pid = getPaymentId();
+      if (!pid) return (statusEl.textContent = "Payment ID required.");
+      try {
+        await runBridgePrint(statusEl, `/api/print/paid_hex/${encodeURIComponent(pid)}`);
+      } catch (e) {
+        statusEl.textContent = `Gagal: ${e.message || e}`;
+      }
+    });
+
+    document.getElementById("btn-bridge-checker")?.addEventListener("click", async () => {
+      const sid = getSessionId();
+      if (!sid) return (statusEl.textContent = "Session ID required.");
+      try {
+        await runBridgePrint(statusEl, `/api/print/checker_hex/${encodeURIComponent(sid)}`);
+      } catch (e) {
+        statusEl.textContent = `Gagal: ${e.message || e}`;
+      }
+    });
+
+    document.getElementById("btn-bridge-kitchen")?.addEventListener("click", async () => {
+      const sid = getSessionId();
+      if (!sid) return (statusEl.textContent = "Session ID required.");
+      try {
+        await runBridgePrint(statusEl, `/api/print/kitchen_hex/${encodeURIComponent(sid)}`);
+      } catch (e) {
+        statusEl.textContent = `Gagal: ${e.message || e}`;
+      }
+    });
+
+    document.getElementById("btn-bridge-void")?.addEventListener("click", async () => {
+      const sid = getSessionId();
+      const name = (voidNameEl?.value || "").trim();
+      const qty = (voidQtyEl?.value || "").trim();
+      const note = (voidNoteEl?.value || "").trim();
+      if (!sid) return (statusEl.textContent = "Session ID required.");
+      if (!name || !qty) return (statusEl.textContent = "Void name & qty required.");
+      const qs = new URLSearchParams({ name, qty, note });
+      try {
+        await runBridgePrint(statusEl, `/api/print/void_hex/${encodeURIComponent(sid)}?${qs.toString()}`);
+      } catch (e) {
+        statusEl.textContent = `Gagal: ${e.message || e}`;
+      }
+    });
+
+    document.getElementById("btn-bridge-qr")?.addEventListener("click", async () => {
+      const sid = getSessionId();
+      const table = getTable();
+      if (!sid || !table) return (statusEl.textContent = "Session ID & table required.");
+      try {
+        await runBridgePrint(statusEl, `/api/print/qr_hex/${encodeURIComponent(table)}/${encodeURIComponent(sid)}`);
+      } catch (e) {
+        statusEl.textContent = `Gagal: ${e.message || e}`;
+      }
+    });
+  })();
+</script>
+{% endblock %}

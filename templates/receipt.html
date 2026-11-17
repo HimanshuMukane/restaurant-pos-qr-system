@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ title or ('Paid Bill' if is_final else 'Pre-Bill') }}</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/receipt.css') }}"
+    />
+  </head>
+  <body>
+    {% set rendered_blocks = blocks if (blocks is defined and blocks) else [{
+    "header": header, "lines": lines, "subtotal": subtotal, "discount_amount":
+    discount_amount, "discount_percent": discount_percent, "service": service,
+    "tax": tax, "total": total, "dp_applied": dp_applied, "dp_remaining":
+    dp_remaining, "is_final": is_final, "service_percent": service_percent,
+    "packaging_fee": packaging_fee, "rounding_down": rounding_down, "payment":
+    payment if (payment is defined) else none, "service_type": service_type if
+    (service_type is defined) else none, }] %} {% set combined_mode =
+    combine_sections|default(False) %}
+    {% set billing_cfg = pos_config.get('billing', {}) if pos_config else {} %}
+    {% set receipt_cfg = pos_config.get('receipt', {}) if pos_config else {} %}
+    {% set service_percent_global = billing_cfg.get('service_percent', 5) %}
+    {% set tax_percent_global = billing_cfg.get('tax_percent', 10) %}
+    {% set receipt_header_lines = receipt_cfg.get('header_lines') %}
+    {% if not receipt_header_lines %}
+      {% set receipt_header_lines = ["DEMO RESTAURANT", "123 Demo Street", "City, 12345"] %}
+    {% endif %}
+    {% set receipt_footer_note = receipt_cfg.get('footer_note') or "Thank you for dining with us!" %}
+
+    <div class="receipt">
+      {% if combined_mode %} {% set primary_header = rendered_blocks[0].header
+      %}
+      <div class="block-head">
+        <div style="text-align: center">
+          {% if receipt_header_lines %}
+            <div><strong>{{ receipt_header_lines[0] }}</strong></div>
+            {% for line in receipt_header_lines[1:] %}
+              <div>{{ line }}</div>
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="small">
+        <div class="row table-label">
+          <div>Table</div>
+          <div><strong>{{ primary_header.table_number }}</strong></div>
+        </div>
+        <div class="row">
+          <div>Bill</div>
+          <div>{{ primary_header.bill_label }}</div>
+        </div>
+        <div class="row">
+          <div>PAX</div>
+          <div>{{ primary_header.pax }}</div>
+        </div>
+        <div class="row">
+          <div>Opened</div>
+          <div>{{ primary_header.opened_at_fmt }}</div>
+        </div>
+        <div class="row">
+          <div>Printed</div>
+          <div>{{ primary_header.printed_at }}</div>
+        </div>
+        <div class="row">
+          <div>Prepared by</div>
+          <div>{{ primary_header.prepared_by }}</div>
+        </div>
+        {% if primary_header.guest_name %}
+        <div class="row">
+          <div>Guest</div>
+          <div>{{ primary_header.guest_name }}</div>
+        </div>
+        {% endif %}
+      </div>
+      <hr class="section-sep" />
+      {% for block in rendered_blocks %} {% set bh = block.header %}
+      <table class="items">
+        <tbody>
+          {% for l in block.lines %}
+          <tr>
+            <td class="qty tight qty-left">{{ l.qty|qtyfmt }}{% if l.unit %} {{ l.unit }}{% endif %}</td>
+            <td class="name wide">
+              <div class="name-main">{{ l.name }}</div>
+              {% if l.note %}
+              <div class="name-note">{{ l.note }}</div>
+              {% endif %}
+            </td>
+            <td class="amt tight">{{ l.line_total|idr_plain }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if not loop.last %}
+      <hr class="section-sep" />
+      {% endif %} {% endfor %} {% if combined_totals %}
+      <table class="items">
+        <tbody>
+          <tr class="totals-start">
+            <td colspan="3"></td>
+          </tr>
+          {% if combined_totals.packaging > 0 %}
+          <tr>
+            <td colspan="2" class="sum-up">Take Away Charge</td>
+            <td class="amt">{{ combined_totals.packaging|idr }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td colspan="2" class="sum-up">Subtotal (Dine In)</td>
+            <td class="amt">{{ combined_totals.subtotal_dine|idr }}</td>
+          </tr>
+          <tr>
+            <td colspan="2" class="sum-up">Subtotal (Take Away)</td>
+            <td class="amt">{{ combined_totals.subtotal_takeaway|idr }}</td>
+          </tr>
+          <tr>
+            <td colspan="2" class="sum-up">Service ({{ service_percent_global }}% dine in)</td>
+            <td class="amt">{{ combined_totals.service|idr }}</td>
+          </tr>
+          <tr>
+            <td colspan="2" class="sum-up">Pajak ({{ tax_percent_global }}%)</td>
+            <td class="amt">{{ combined_totals.tax|idr }}</td>
+          </tr>
+          <tr>
+            <th colspan="2" class="sum-up total-label">Total</th>
+            <th class="amt total-amt">{{ combined_totals.total|idr }}</th>
+          </tr>
+          {% if combined_totals.dp_applied and combined_totals.dp_applied > 0 %}
+          <tr>
+            <th colspan="2" class="sum-up">DP</th>
+            <th class="amt">- {{ combined_totals.dp_applied|idr }}</th>
+          </tr>
+          <tr>
+            <th colspan="2" class="sum-up"></th>
+            <th class="amt">{{ combined_totals.after_dp|idr }}</th>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+      {% endif %}
+
+      <section class="footer-notes">
+        <hr />
+        <p>{{ receipt_footer_note }}</p>
+      </section>
+      {% else %} {% for block in rendered_blocks %} {% set bh = block.header %}
+      {% set block_payment = block.payment if (block.payment is defined) else
+      none %} {% set block_is_final = block.is_final %} {% set block_is_takeaway
+      = (block.service_type|default('dine_in')) == 'takeaway' or bh.table_number
+      in ['TA', 'TAKE AWAY'] %}
+
+      <div class="block-head">
+        <div style="text-align: center">
+          {% if receipt_header_lines %}
+            <div><strong>{{ receipt_header_lines[0] }}</strong></div>
+            {% for line in receipt_header_lines[1:] %}
+              <div>{{ line }}</div>
+            {% endfor %}
+          {% endif %}
+        </div>
+        {% if rendered_blocks|length > 1 %}
+        <div class="block-caption">
+          {{ 'TAKE AWAY' if block_is_takeaway else 'DINE IN' }}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="small">
+        <div class="row table-label">
+          <div>Table</div>
+          <div>
+            <strong
+              >{{ 'TAKE AWAY' if block_is_takeaway else bh.table_number
+              }}</strong
+            >
+          </div>
+        </div>
+        <div class="row">
+          <div>Bill</div>
+          <div>{{ bh.bill_label }}</div>
+        </div>
+        <div class="row">
+          <div>PAX</div>
+          <div>{{ bh.pax }}</div>
+        </div>
+        <div class="row">
+          <div>Opened</div>
+          <div>{{ bh.opened_at_fmt }}</div>
+        </div>
+        <div class="row">
+          <div>Printed</div>
+          <div>{{ bh.printed_at }}</div>
+        </div>
+        <div class="row">
+          <div>Prepared by</div>
+          <div>{{ bh.prepared_by }}</div>
+        </div>
+        {% if bh.guest_name %}
+        <div class="row">
+          <div>Guest</div>
+          <div>{{ bh.guest_name }}</div>
+        </div>
+        {% endif %}
+      </div>
+      <table class="items">
+        <tbody>
+          {% for l in block.lines %}
+          <tr>
+            <td class="qty tight">{{ l.qty|qtyfmt }}{% if l.unit %} {{ l.unit }}{% endif %}</td>
+            <td class="name wide">
+              <div class="name-main">{{ l.name }}</div>
+              {% if l.note %}
+              <div class="name-note">{{ l.note }}</div>
+              {% endif %}
+            </td>
+            <td class="amt tight">{{ l.line_total|idr_plain }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="totals-start">
+            <td colspan="4"></td>
+          </tr>
+
+          <hr />
+
+          {% if block.packaging_fee and block.packaging_fee > 0 %}
+          <tr>
+            <td colspan="2" class="sum-up">Take Away Charge</td>
+            <td class="amt">{{ block.packaging_fee|idr }}</td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td colspan="2" class="sum-up">Subtotal</td>
+            <td class="amt">{{ block.subtotal|idr }}</td>
+          </tr>
+
+          {% if block.discount_amount and block.discount_amount > 0 %}
+          <tr>
+            <td colspan="2" class="sum-up">
+              Diskon{% if block.discount_percent %} ({{ block.discount_percent
+              }}%){% endif %}
+            </td>
+            <td class="amt">-{{ block.discount_amount|idr }}</td>
+          </tr>
+          {% endif %} {% if (not block_is_takeaway) and block.service and
+          block.service > 0 %}
+          {% set block_service_pct = block.service_percent if block.service_percent is not none else service_percent_global %}
+          <tr>
+            <td colspan="2" class="sum-up">Service ({{ block_service_pct }}%)</td>
+            <td class="amt">{{ block.service|idr }}</td>
+          </tr>
+          {% endif %}
+
+          <tr>
+            <td colspan="2" class="sum-up">Pajak ({{ tax_percent_global }}%)</td>
+            <td class="amt">{{ block.tax|idr }}</td>
+          </tr>
+
+          <tr>
+            <th colspan="2" class="sum-up total-label">Total</th>
+            <th class="amt total-amt">{{ block.total|idr }}</th>
+          </tr>
+
+          {% if block.dp_applied and block.dp_applied > 0 %}
+          <tr>
+            <th colspan="2" class="sum-up">DP</th>
+            <th class="amt">- {{ block.dp_applied|idr }}</th>
+          </tr>
+          <tr>
+            <th colspan="2" class="sum-up"></th>
+            <th class="amt">
+              {{ ((block.total|int) - (block.dp_applied|default(0)|int)) | idr
+              }}
+            </th>
+          </tr>
+          {% endif %} {% if block_is_final and block_payment %}
+          <tr>
+            <td colspan="2" class="sum-up">
+              Paid via {{ block_payment.method_label }}
+            </td>
+            <td class="amt">{{ block_payment.paid_amount|idr }}</td>
+          </tr>
+          <tr>
+            <td colspan="3">
+              <div style="margin-top: 40px">
+                <div style="text-align: left">Signature______________</div>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" class="sum-up">Change</td>
+            <td class="amt">{{ block_payment.change|idr }}</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+
+      <section class="footer-notes">
+        {% if block_is_final %} {% if block.dp_applied and block.dp_applied > 0
+        %}
+        <p>DP diterapkan: {{ block.dp_applied|idr }}</p>
+        {% if block.dp_remaining is not none and block.dp_remaining > 0 %}
+        <p>Sisa DP: {{ block.dp_remaining|idr }}</p>
+        {% endif %} {% endif %}
+        <hr />
+        {% if bh.closed_at_fmt %}
+        <p>Closed: {{ bh.closed_at_fmt }}</p>
+        {% endif %}
+        <hr />
+        <p>{{ receipt_footer_note }}</p>
+        {% else %}
+        <hr />
+        <p>{{ receipt_footer_note }}</p>
+        {% endif %}
+      </section>
+
+      {% if not loop.last %}
+      <hr class="section-sep" />
+      {% endif %} {% endfor %} {% endif %}
+    </div>
+
+    {% if autoprint %}
+    <script>
+      window.addEventListener("load", () => {
+        try {
+          window.print();
+        } catch (e) {}
+        setTimeout(() => {
+          try {
+            window.close();
+          } catch (e) {}
+        }, 400);
+      });
+    </script>
+    {% endif %}
+  </body>
+</html>
