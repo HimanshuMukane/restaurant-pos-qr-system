@@ -6,13 +6,11 @@ namespace NodedrRestaurant.Api.Models;
 public class MenuCategory
 {
     public string Id { get; set; } = null!;
-    public string RestaurantId { get; set; } = null!;
+    public string BranchId { get; set; } = null!;
     public string Name { get; set; } = null!;
-    public string? Description { get; set; }
-    public int DisplayOrder { get; set; } = 0;
+    public int SortOrder { get; set; } = 0;
     public bool IsActive { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public bool ShowOnWebsite { get; set; } = true;
 
     public ICollection<MenuItem> Items { get; set; } = new List<MenuItem>();
 }
@@ -20,17 +18,21 @@ public class MenuCategory
 public class MenuItem
 {
     public string Id { get; set; } = null!;
-    public string RestaurantId { get; set; } = null!;
+    public string BranchId { get; set; } = null!;
     public string CategoryId { get; set; } = null!;
+    public string? StationId { get; set; }
     public string Name { get; set; } = null!;
+    public string? Sku { get; set; }
     public string? Description { get; set; }
-    public decimal Price { get; set; }
-    public decimal? HalfPrice { get; set; }
     public string? ImageUrl { get; set; }
+    public decimal Price { get; set; }
+    public decimal TaxRatePercent { get; set; } = 0;
+    public decimal? HalfPrice { get; set; }
     public bool IsVeg { get; set; } = true;
-    public bool IsAvailable { get; set; } = true;
+    public bool IsActive { get; set; } = true;
     public string SpiceLevel { get; set; } = "NONE";
-    public string? Allergens { get; set; } // JSON
+    public string Allergens { get; set; } = "[]"; // JSON
+    public int SortOrder { get; set; } = 0;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

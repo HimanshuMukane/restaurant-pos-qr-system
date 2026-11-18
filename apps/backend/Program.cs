@@ -335,13 +335,13 @@ app.MapPatch("/api/v1/tables/{id}/status", async (AppDbContext db, string id, Up
 // ---------------------------------------------------------------------------
 // Menu & Catalog Endpoints
 // ---------------------------------------------------------------------------
-app.MapGet("/api/v1/menu", async (AppDbContext db, string? restaurantId) =>
+app.MapGet("/api/v1/menu", async (AppDbContext db, string? branchId) =>
 {
-    var query = db.MenuCategories.Include(c => c.Items.Where(i => i.IsAvailable)).Where(c => c.IsActive).AsQueryable();
-    if (!string.IsNullOrEmpty(restaurantId))
-        query = query.Where(c => c.RestaurantId == restaurantId);
+    var query = db.MenuCategories.Include(c => c.Items.Where(i => i.IsActive)).Where(c => c.IsActive).AsQueryable();
+    if (!string.IsNullOrEmpty(branchId))
+        query = query.Where(c => c.BranchId == branchId);
 
-    var categories = await query.OrderBy(c => c.DisplayOrder).ToListAsync();
+    var categories = await query.OrderBy(c => c.SortOrder).ToListAsync();
     return Results.Ok(new { data = categories });
 });
 
