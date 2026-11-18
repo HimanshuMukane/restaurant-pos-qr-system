@@ -36,6 +36,11 @@ coverage/
 # Docker Local Overrides
 docker-compose.override.yml
 
-# .NET (windows/msix/Launcher)
-windows/msix/Launcher/bin/
-windows/msix/Launcher/obj/
+# .NET (Backend & MSIX Launcher)
+**/bin/
+**/obj/
+*.user
+*.userosscache
+*.sln.docstates
+.vs/
+apps/backend-nest-ref/

@@ -34,7 +34,9 @@ allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
   '@scarf/scarf': true
+  '@swc/core': true
   bcrypt: true
+  better-sqlite3: true
   prisma: true
   sharp: true
   unrs-resolver: true

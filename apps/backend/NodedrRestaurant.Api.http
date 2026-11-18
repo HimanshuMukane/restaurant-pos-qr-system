@@ -1,0 +1,6 @@
+@NodedrRestaurant.Api_HostAddress = http://localhost:5077
+
+GET {{NodedrRestaurant.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

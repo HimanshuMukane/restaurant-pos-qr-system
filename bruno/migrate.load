@@ -1,0 +1,13 @@
+LOAD DATABASE
+     FROM pgsql://nodedr:nodedr_dev_pw@nodedr-restaurant-postgres:5432/nodedr_restaurant
+     INTO mysql://nodedr:nodedr_dev_pw@nodedr-restaurant-mysql:3306/nodedr_restaurant
+
+WITH include drop, create tables, create indexes, reset sequences
+
+EXCLUDING TABLE NAMES MATCHING 'sync_changes', 'sync_state'
+
+CAST type timestamptz to datetime drop default drop not null using zero-dates-to-null,
+     type date to datetime drop default drop not null using zero-dates-to-null,
+     type boolean to tinyint drop default using boolean-to-tinyint,
+     type jsonb to json drop default,
+     type "ModuleKey"[] to json drop default;

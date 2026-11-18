@@ -1,0 +1,150 @@
+================================================================================
+DATABASE ACCESS METHODS & BASIC COMMANDS
+================================================================================
+Project: Restaurant POS & QR System (Nodedr OrderRestro)
+Database Engine: PostgreSQL 16 (Alpine)
+Default DB Name: nodedr_restaurant
+Default DB User: nodedr
+Default Port:    5432
+
+================================================================================
+1. CONNECTION DETAILS & ENVIRONMENT CONFIGURATION
+================================================================================
+
+Default Connection String (Docker Network / Internal):
+  postgresql://nodedr:${POSTGRES_PASSWORD:-nodedr_dev_pw}@postgres:5432/nodedr_restaurant
+
+Default Connection String (Host / Localhost - when port 5432 is published):
+  postgresql://nodedr:nodedr_dev_pw@localhost:5432/nodedr_restaurant
+
+Environment Variables (found in .env):
+  POSTGRES_USER=nodedr
+  POSTGRES_PASSWORD=nodedr_dev_pw (or value set in .env)
+  POSTGRES_DB=nodedr_restaurant
+  DATABASE_URL=postgresql://nodedr:<password>@localhost:5432/nodedr_restaurant
+
+Note on Docker Port Binding:
+  In docker-compose.yml, the `postgres` service exposes port 5432 internally.
+  To connect from your local host machine GUI tools (DBeaver, TablePlus, Bruno, etc.),
+  ensure `ports` is enabled in docker-compose.yml:
+    ports:
+      - "5432:5432"
+
+================================================================================
+2. HOW TO ACCESS THE DATABASE
+================================================================================
+
+METHOD A: Direct Shell via Docker Exec (No local psql needed)
+--------------------------------------------------------------------------------
+1. Interactive psql session as `nodedr` user:
+     docker compose exec postgres psql -U nodedr -d nodedr_restaurant
+
+2. Run a one-line SQL query directly from terminal:
+     docker compose exec postgres psql -U nodedr -d nodedr_restaurant -c "SELECT count(*) FROM \"Restaurant\";"
+
+3. Bash into the Postgres container:
+     docker compose exec -it postgres sh
+
+METHOD B: From Host via Local `psql` CLI
+--------------------------------------------------------------------------------
+(Requires `5432:5432` published in docker-compose.yml)
+     psql -h localhost -p 5432 -U nodedr -d nodedr_restaurant
+
+METHOD C: GUI Clients (DBeaver, TablePlus, pgAdmin, DataGrip)
+--------------------------------------------------------------------------------
+  Host:      localhost (or 127.0.0.1)
+  Port:      5432
+  Database:  nodedr_restaurant
+  Username:  nodedr
+  Password:  <value of POSTGRES_PASSWORD in .env>
+
+================================================================================
+3. ESSENTIAL PSQL COMMANDS (INSIDE PSQL REPL)
+================================================================================
+
+Connection & Session:
+  \l                 - List all databases
+  \c <dbname>        - Connect to / switch database (e.g., \c nodedr_restaurant)
+  \dn                - List schemas
+  \dt                - List all tables in current schema
+  \dt+               - List all tables with size and description
+  \d <table_name>    - Show table definition, columns, indexes, and constraints
+  \di                - List all indexes
+  \df                - List all stored functions
+  \du                - List all database users/roles and permissions
+  \timing            - Toggle query execution timing (on/off)
+  \x                 - Toggle expanded display (vertical row display, helpful for wide tables)
+  \q                 - Quit / exit psql
+
+Common Inspection Queries:
+  -- List all tables with row count estimates:
+  SELECT relname AS table_name, n_live_tup AS row_estimate
+  FROM pg_stat_user_tables
+  ORDER BY n_live_tup DESC;
+
+  -- Check current active connections / queries:
+  SELECT pid, usename, client_addr, state, query, query_start
+  FROM pg_stat_activity
+  WHERE datname = 'nodedr_restaurant';
+
+  -- Terminate a stuck/blocking connection:
+  SELECT pg_terminate_backend(<pid>);
+
+  -- Check database disk size:
+  SELECT pg_size_pretty(pg_database_size('nodedr_restaurant'));
+
+  -- Check top 10 largest tables on disk:
+  SELECT relname AS table_name,
+         pg_size_pretty(pg_total_relation_size(relid)) AS total_size
+  FROM pg_catalog.pg_statio_user_tables
+  ORDER BY pg_total_relation_size(relid) DESC
+  LIMIT 10;
+
+================================================================================
+4. BACKUP, DUMP & RESTORE COMMANDS
+================================================================================
+
+Export / Dump Database to SQL file:
+  # Plain SQL text format:
+  docker compose exec -T postgres pg_dump -U nodedr -d nodedr_restaurant > backup.sql
+
+  # Compressed custom format (faster, supports pg_restore):
+  docker compose exec -T postgres pg_dump -U nodedr -Fc -d nodedr_restaurant > backup.dump
+
+Restore Database:
+  # From plain SQL file:
+  docker compose exec -T postgres psql -U nodedr -d nodedr_restaurant < backup.sql
+
+  # From pg_dump.sql in repository root:
+  docker compose exec -T postgres psql -U nodedr -d nodedr_restaurant < pg_dump.sql
+
+  # From custom format (.dump):
+  docker compose exec -T postgres pg_restore -U nodedr -d nodedr_restaurant -c backup.dump
+
+================================================================================
+5. ADONISJS 7 + LUCID CLI COMMANDS (FROM apps/backend)
+================================================================================
+
+Run migrations:
+  node ace migration:run
+
+Check migration status:
+  node ace migration:status
+
+Rollback last migration batch:
+  node ace migration:rollback
+
+Reset and re-run all migrations:
+  node ace migration:refresh
+
+Drop all tables and wipe database:
+  node ace db:wipe
+
+Seed database:
+  node ace db:seed
+
+Interactive REPL (test models and queries directly in JS):
+  node ace repl
+  # Inside REPL:
+  # await db.from('restaurants').select('*')
+================================================================================
